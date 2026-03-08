@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ReachIQ - AI-Powered Influencer Marketing</title>
+    <link rel="stylesheet" href="styles/style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="hero-header">
+            <h1>🎯 ReachIQ</h1>
+            <p class="hero-subtitle">AI-Powered Influencer Marketing Platform</p>
+            <p class="hero-description">Connect brands with perfect creators using AI-driven matching.</p>
+        </header>
+
+        <div class="auth-forms">
+            <div class="form-container">
+                <h2>Welcome Back</h2>
+                <form id="loginForm">
+                    <div class="form-group"><input type="email" id="loginEmail" placeholder="Email" required></div>
+                    <div class="form-group"><input type="password" id="loginPassword" placeholder="Password" required></div>
+                    <button type="submit" class="btn-primary">Login</button>
+                </form>
+            </div>
+
+            <div class="form-container">
+                <h2>Join ReachIQ</h2>
+                <form id="signupForm">
+                    <div class="form-group"><input type="text" id="signupName" placeholder="Full Name" required></div>
+                    <div class="form-group"><input type="email" id="signupEmail" placeholder="Email" required></div>
+                    <div class="form-group"><input type="password" id="signupPassword" placeholder="Password" required></div>
+                    <div class="form-group">
+                        <select id="signupRole" required>
+                            <option value="">I am a...</option>
+                            <option value="brand">Brand / Agency</option>
+                            <option value="influencer">Content Creator</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" id="youtubeHandleGroup" style="display: none;">
+                        <input type="text" id="youtubeHandle" placeholder="YouTube Handle (e.g., @mrbeast)">
+                        <small style="color: #666;">We will fetch your stats and use AI to build your profile automatically.</small>
+                    </div>
+
+                    <button type="submit" class="btn-primary">Create Account</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="message" class="message"></div>
+        <div id="loading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p id="loadingText">Processing...</p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const SUPABASE_URL = 'https://rbqphouxghbiynlqanmp.supabase.co';
+            const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJicXBob3V4Z2hiaXlubHFhbm1wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2NTAzNzIsImV4cCI6MjA3NjIyNjM3Mn0.VWSTqtXNy-twpJWk1VJqWRLfomKex8maiSf6wVuFlLM'; // Put your actual key here!
+            window.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            
+            document.getElementById('signupRole').addEventListener('change', function(e) {
+                const ytGroup = document.getElementById('youtubeHandleGroup');
+                const ytInput = document.getElementById('youtubeHandle');
+                if (e.target.value === 'influencer') {
+                    ytGroup.style.display = 'block';
+                    ytInput.required = true;
+                } else {
+                    ytGroup.style.display = 'none';
+                    ytInput.required = false;
+                }
+            });
+
+            document.getElementById('signupForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await handleSignUp(
+                    document.getElementById('signupEmail').value,
+                    document.getElementById('signupPassword').value,
+                    document.getElementById('signupName').value,
+                    document.getElementById('signupRole').value
+                );
+            });
+            
+            document.getElementById('loginForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await handleLogin(document.getElementById('loginEmail').value, document.getElementById('loginPassword').value);
+            });
+        });
+
+        async function handleSignUp(email, password, fullName, role) {
+            try {
+                showLoading(true, 'Creating account...');
+                
+                const { data: authData, error: authError } = await window.supabase.auth.signUp({
+                    email, password, options: { data: { full_name: fullName, role: role } }
+                });
+                if (authError) throw authError;
+                
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                if (role === 'influencer') {
+                    showLoading(true, '🤖 AI is analyzing your YouTube channel and building your profile...');
+                    const youtubeHandle = document.getElementById('youtubeHandle').value;
+                    
+                    const { data: { session } } = await window.supabase.auth.getSession();
+                    await fetch('/api/influencer/sync-youtube', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+                        body: JSON.stringify({ youtube_handle: youtubeHandle })
+                    });
+                }
+                
+                showLoading(false);
+                showMessage('✅ Account created successfully!', 'success');
+                setTimeout(() => handleLogin(email, password), 1500);
+                
+            } catch (error) {
+                showLoading(false);
+                showMessage('Error: ' + error.message, 'error');
+            }
+        }
+
+        async function handleLogin(email, password) {
+            try {
+                const { data, error } = await window.supabase.auth.signInWithPassword({ email, password });
+                if (error) throw error;
+                
+                const { data: profile } = await window.supabase.from('profiles').select('role').eq('id', data.user.id).single();
+                window.location.href = profile.role === 'brand' ? '/brand-dashboard.html' : '/influencer-profile.html';
+            } catch (error) {
+                showMessage('Login Error: ' + error.message, 'error');
+            }
+        }
+
+        function showMessage(msg, type) {
+            const div = document.getElementById('message');
+            div.textContent = msg;
+            div.className = `message ${type}`;
+            div.style.display = 'block';
+            setTimeout(() => div.style.display = 'none', 4000);
+        }
+
+        function showLoading(show, text = 'Processing...') {
+            const loader = document.getElementById('loading');
+            document.getElementById('loadingText').textContent = text;
+            loader.style.display = show ? 'block' : 'none';
+        }
+    </script>
+</body>
+</html>

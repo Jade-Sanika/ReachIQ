@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Profile - ReachIQ</title>
+    <link rel="stylesheet" href="styles/style.css">
+    <style>
+        .readonly-input { background-color: #f3f4f6; color: #6b7280; cursor: not-allowed; font-weight: bold; }
+        .ai-badge { background: #e0e7ff; color: #4f46e5; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; margin-left: 10px; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">🎯 ReachIQ</div>
+        <div class="nav-links">
+            <a href="influencer-dashboard.html">Dashboard</a>
+            <a href="influencer-profile.html" class="active">Profile</a>
+            <button onclick="logout()" class="btn-logout">Logout</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header class="dashboard-header">
+            <h1>Your Creator Profile</h1>
+            <p>Review the details AI generated for you, and tweak them as needed!</p>
+        </header>
+
+        <div class="profile-form-container">
+            <form id="profileForm">
+                
+                <div class="form-section" style="background: #fafafa; padding: 1.5rem; border-radius: 8px;">
+                    <h2>📈 Verified YouTube Metrics <span class="ai-badge">Auto-Synced</span></h2>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Subscribers</label>
+                            <input type="text" id="followerCount" class="readonly-input" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>Total Views</label>
+                            <input type="text" id="totalViews" class="readonly-input" readonly>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Video Count</label>
+                            <input type="text" id="videoCount" class="readonly-input" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>Engagement Rate (%) (Based on last 5 videos)</label>
+                            <input type="text" id="engagementRate" class="readonly-input" readonly>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section" style="margin-top: 2rem;">
+                    <h2>🎨 Content & Brand <span class="ai-badge">AI Generated</span></h2>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Full Name / Channel Name</label>
+                            <input type="text" id="fullName" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Primary Niche</label>
+                            <select id="niche" required>
+                                <option value="fitness">Fitness & Health</option>
+                                <option value="beauty">Beauty & Skincare</option>
+                                <option value="fashion">Fashion & Style</option>
+                                <option value="tech">Technology & Gadgets</option>
+                                <option value="travel">Travel & Adventure</option>
+                                <option value="food">Food & Cooking</option>
+                                <option value="lifestyle">Lifestyle & Wellness</option>
+                                <option value="gaming">Gaming & Entertainment</option>
+                                <option value="education">Education & Learning</option>
+                                <option value="business">Business & Finance</option>
+                                <option value="sports">Sports</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Your Creator Bio</label>
+                        <textarea id="bio" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Content Description</label>
+                        <input type="text" id="contentDescription">
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2>👥 Target Audience <span class="ai-badge">AI Generated</span></h2>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Audience Age</label>
+                            <select id="audienceAge">
+                                <option value="13-17">13-17 (Teens)</option>
+                                <option value="18-24">18-24 (Young Adults)</option>
+                                <option value="25-34">25-34 (Millennials)</option>
+                                <option value="35-44">35-44 (Adults)</option>
+                                <option value="45+">45+ (Mature)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Audience Gender</label>
+                            <select id="audienceGender">
+                                <option value="male">Male</option>
+                                <option value="female">Female</option>
+                                <option value="mixed">Mixed</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Audience Interests</label>
+                        <input type="text" id="audienceInterests" placeholder="e.g., Gaming, PC Builds, Tech News">
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Save Profile</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js"></script>
+    <script>
+        const SUPABASE_URL = 'https://rbqphouxghbiynlqanmp.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJicXBob3V4Z2hiaXlubHFhbm1wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2NTAzNzIsImV4cCI6MjA3NjIyNjM3Mn0.VWSTqtXNy-twpJWk1VJqWRLfomKex8maiSf6wVuFlLM';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        async function init() {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            if (!user) return window.location.href = '/';
+
+            // Load Data
+            const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', user.id).single();
+            const { data: infProfile } = await supabaseClient.from('influencer_profiles').select('*').eq('profile_id', user.id).single();
+
+            // Populate Form (Editable)
+            document.getElementById('fullName').value = profile.full_name || '';
+            document.getElementById('niche').value = infProfile.niche || 'lifestyle';
+            document.getElementById('bio').value = infProfile.bio || '';
+            document.getElementById('contentDescription').value = infProfile.content_description || '';
+            document.getElementById('audienceAge').value = infProfile.audience_age || '18-24';
+            document.getElementById('audienceGender').value = infProfile.audience_gender || 'mixed';
+            document.getElementById('audienceInterests').value = infProfile.audience_interests || '';
+
+            // Populate Form (Read Only Metrics)
+            document.getElementById('followerCount').value = infProfile.follower_count?.toLocaleString() || '0';
+            document.getElementById('totalViews').value = infProfile.total_views?.toLocaleString() || '0';
+            document.getElementById('videoCount').value = infProfile.video_count?.toLocaleString() || '0';
+            document.getElementById('engagementRate').value = infProfile.engagement_rate ? infProfile.engagement_rate + '%' : '0%';
+        }
+
+        document.getElementById('profileForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            
+            // Save Editable fields
+            await supabaseClient.from('profiles').update({
+                full_name: document.getElementById('fullName').value
+            }).eq('id', user.id);
+
+            await supabaseClient.from('influencer_profiles').update({
+                niche: document.getElementById('niche').value,
+                bio: document.getElementById('bio').value,
+                content_description: document.getElementById('contentDescription').value,
+                audience_age: document.getElementById('audienceAge').value,
+                audience_gender: document.getElementById('audienceGender').value,
+                audience_interests: document.getElementById('audienceInterests').value
+            }).eq('profile_id', user.id);
+
+            alert("Profile Saved!");
+        });
+
+        async function logout() {
+            await supabaseClient.auth.signOut();
+            window.location.href = '/';
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+
+
+    <style>
+        .completion-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+            border-left: 4px solid #667eea;
+        }
+
+        .completion-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .completion-header h3 {
+            margin: 0;
+            color: #333;
+        }
+
+        .completion-score {
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        .completion-bar {
+            background: #e0e0e0;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+        }
+
+        .completion-fill {
+            background: #667eea;
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .completion-text {
+            margin: 0;
+            font-size: 0.9rem;
+        }
+
+        .profile-form-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        .form-section {
+            margin-bottom: 2.5rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .form-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .form-section h2 {
+            color: #333;
+            margin-bottom: 1.5rem;
+            font-size: 1.3rem;
+            border-left: 4px solid #667eea;
+            padding-left: 1rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-group small {
+            color: #666;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+            display: block;
+        }
+
+        .link-inputs {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .link-input {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .platform-icon {
+            font-size: 1.2rem;
+            min-width: 30px;
+        }
+
+        .link-input input {
+            flex: 1;
+        }
+
+        .checkbox-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0.75rem;
+            margin-top: 0.5rem;
+        }
+
+        .checkbox {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+
+        .checkbox:hover {
+            background: #f8f9fa;
+            border-color: #667eea;
+        }
+
+        .checkbox input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .checkbox-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .form-actions {
+                flex-direction: column;
+            }
+            
+            .completion-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+        }
+    </style>
+</body>
+</html>
