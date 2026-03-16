@@ -3,87 +3,159 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ReachIQ - AI-Powered Influencer Marketing</title>
+    <title>ReachIQ — AI-Powered Influencer Marketing</title>
     <link rel="stylesheet" href="styles/style.css">
 </head>
-<body>
-    <div class="container">
-        <header class="hero-header">
-            <h1>🎯 ReachIQ</h1>
-            <p class="hero-subtitle">AI-Powered Influencer Marketing Platform</p>
-            <p class="hero-description">Connect brands with perfect creators using AI-driven matching.</p>
-        </header>
+<body class="auth-body">
+
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+
+    <div class="auth-container">
+        <div class="auth-brand">
+            <div class="brand-logo">✦ ReachIQ</div>
+            <h1 class="brand-headline">Where Brands<br>Meet Creators</h1>
+            <p class="brand-sub">AI-powered matching that connects the right brands with the perfect creators — automatically.</p>
+            <div class="brand-features">
+                <div class="feature-item">
+                    <span class="feature-icon">🤖</span>
+                    <span>AI-driven creator matching</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">📊</span>
+                    <span>Real-time ROI analytics</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">⚡</span>
+                    <span>Instant negotiation tools</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">🎯</span>
+                    <span>Precision audience targeting</span>
+                </div>
+            </div>
+        </div>
 
         <div class="auth-forms">
-            <div class="form-container">
-                <h2>Welcome Back</h2>
+            <div class="auth-tabs">
+                <button class="tab-btn active" onclick="switchTab('login')">Sign In</button>
+                <button class="tab-btn" onclick="switchTab('signup')">Create Account</button>
+            </div>
+
+            <div id="loginTab" class="auth-panel active">
+                <div class="auth-panel-header">
+                    <h2>Welcome back</h2>
+                    <p>Sign in to your ReachIQ account</p>
+                </div>
                 <form id="loginForm">
-                    <div class="form-group"><input type="email" id="loginEmail" placeholder="Email" required></div>
-                    <div class="form-group"><input type="password" id="loginPassword" placeholder="Password" required></div>
-                    <button type="submit" class="btn-primary">Login</button>
+                    <div class="form-group">
+                        <label>Email Address</label>
+                        <input type="email" id="loginEmail" placeholder="you@example.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <div class="password-wrapper">
+                            <input type="password" id="loginPassword" placeholder="Your password" required>
+                            <button type="button" class="toggle-password" onclick="togglePasswordVisibility('loginPassword', this)" aria-label="Toggle password visibility">
+                                <svg class="eye-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary" style="width:100%;justify-content:center;padding:0.85rem;margin-top:1rem;">Sign In</button>
                 </form>
             </div>
 
-            <div class="form-container">
-                <h2>Join ReachIQ</h2>
+            <div id="signupTab" class="auth-panel">
+                <div class="auth-panel-header">
+                    <h2>Join ReachIQ</h2>
+                    <p>Start your influencer marketing journey</p>
+                </div>
                 <form id="signupForm">
-                    <div class="form-group"><input type="text" id="signupName" placeholder="Full Name" required></div>
-                    <div class="form-group"><input type="email" id="signupEmail" placeholder="Email" required></div>
-                    <div class="form-group"><input type="password" id="signupPassword" placeholder="Password" required></div>
                     <div class="form-group">
+                        <label>Full Name</label>
+                        <input type="text" id="signupName" placeholder="Your full name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email Address</label>
+                        <input type="email" id="signupEmail" placeholder="you@example.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <div class="password-wrapper">
+                            <input type="password" id="signupPassword" placeholder="Create a password" required>
+                            <button type="button" class="toggle-password" onclick="togglePasswordVisibility('signupPassword', this)" aria-label="Toggle password visibility">
+                                <svg class="eye-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>I am a...</label>
                         <select id="signupRole" required>
-                            <option value="">I am a...</option>
+                            <option value="">Choose your role</option>
                             <option value="brand">Brand / Agency</option>
                             <option value="influencer">Content Creator</option>
                         </select>
                     </div>
-                    
-                    <div class="form-group" id="youtubeHandleGroup" style="display: none;">
-                        <input type="text" id="youtubeHandle" placeholder="YouTube Handle (e.g., @mrbeast)">
-                        <small style="color: #666;">We will fetch your stats and use AI to build your profile automatically.</small>
+                    <div class="form-group" id="youtubeHandleGroup" style="display:none;">
+                        <label>YouTube Handle</label>
+                        <input type="text" id="youtubeHandle" placeholder="@yourchannel">
+                        <small style="color:var(--text-muted);font-size:0.78rem;margin-top:0.3rem;">AI will auto-build your profile from your channel stats.</small>
                     </div>
-
-                    <button type="submit" class="btn-primary">Create Account</button>
+                    <button type="submit" class="btn-primary" style="width:100%;justify-content:center;padding:0.85rem;margin-top:1rem;">Create Account</button>
                 </form>
             </div>
-        </div>
 
-        <div id="message" class="message"></div>
-        <div id="loading" class="loading" style="display: none;">
-            <div class="spinner"></div>
-            <p id="loadingText">Processing...</p>
+            <div id="message" class="message"></div>
+            <div id="loading" class="loading" style="display:none;">
+                <div class="spinner"></div>
+                <p id="loadingText">Processing...</p>
+            </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js"></script>
     <script>
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', (tab==='login'&&i===0)||(tab==='signup'&&i===1)));
+            document.getElementById('loginTab').classList.toggle('active', tab === 'login');
+            document.getElementById('signupTab').classList.toggle('active', tab === 'signup');
+        }
+
+        // NEW: Toggle Password Visibility Function
+        function togglePasswordVisibility(inputId, btnElement) {
+            const input = document.getElementById(inputId);
+            
+            // SVG definitions for open and closed eyes
+            const eyeOpen = `<svg class="eye-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+            const eyeClosed = `<svg class="eye-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`;
+
+            if (input.type === 'password') {
+                input.type = 'text';
+                btnElement.innerHTML = eyeClosed;
+            } else {
+                input.type = 'password';
+                btnElement.innerHTML = eyeOpen;
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             const SUPABASE_URL = 'https://rbqphouxghbiynlqanmp.supabase.co';
-            const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJicXBob3V4Z2hiaXlubHFhbm1wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2NTAzNzIsImV4cCI6MjA3NjIyNjM3Mn0.VWSTqtXNy-twpJWk1VJqWRLfomKex8maiSf6wVuFlLM'; // Put your actual key here!
+            const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJicXBob3V4Z2hiaXlubHFhbm1wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2NTAzNzIsImV4cCI6MjA3NjIyNjM3Mn0.VWSTqtXNy-twpJWk1VJqWRLfomKex8maiSf6wVuFlLM';
             window.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-            
+
             document.getElementById('signupRole').addEventListener('change', function(e) {
                 const ytGroup = document.getElementById('youtubeHandleGroup');
                 const ytInput = document.getElementById('youtubeHandle');
-                if (e.target.value === 'influencer') {
-                    ytGroup.style.display = 'block';
-                    ytInput.required = true;
-                } else {
-                    ytGroup.style.display = 'none';
-                    ytInput.required = false;
-                }
+                if (e.target.value === 'influencer') { ytGroup.style.display = 'flex'; ytInput.required = true; }
+                else { ytGroup.style.display = 'none'; ytInput.required = false; }
             });
 
             document.getElementById('signupForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
-                await handleSignUp(
-                    document.getElementById('signupEmail').value,
-                    document.getElementById('signupPassword').value,
-                    document.getElementById('signupName').value,
-                    document.getElementById('signupRole').value
-                );
+                await handleSignUp(document.getElementById('signupEmail').value, document.getElementById('signupPassword').value, document.getElementById('signupName').value, document.getElementById('signupRole').value);
             });
-            
+
             document.getElementById('loginForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 await handleLogin(document.getElementById('loginEmail').value, document.getElementById('loginPassword').value);
@@ -92,34 +164,23 @@
 
         async function handleSignUp(email, password, fullName, role) {
             try {
-                showLoading(true, 'Creating account...');
-                
-                const { data: authData, error: authError } = await window.supabase.auth.signUp({
-                    email, password, options: { data: { full_name: fullName, role: role } }
-                });
+                showLoading(true, 'Creating your account...');
+                const { data: authData, error: authError } = await window.supabase.auth.signUp({ email, password, options: { data: { full_name: fullName, role: role } } });
                 if (authError) throw authError;
-                
                 await new Promise(resolve => setTimeout(resolve, 1000));
-
-                if (role === 'influencer') {
-                    showLoading(true, '🤖 AI is analyzing your YouTube channel and building your profile...');
-                    const youtubeHandle = document.getElementById('youtubeHandle').value;
-                    
-                    const { data: { session } } = await window.supabase.auth.getSession();
-                    await fetch('/api/influencer/sync-youtube', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-                        body: JSON.stringify({ youtube_handle: youtubeHandle })
-                    });
-                }
                 
+                if (role === 'influencer') {
+                    showLoading(true, '🤖 AI is analyzing your YouTube channel...');
+                    const youtubeHandle = document.getElementById('youtubeHandle').value;
+                    const { data: { session } } = await window.supabase.auth.getSession();
+                    await fetch('/api/influencer/sync-youtube', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` }, body: JSON.stringify({ youtube_handle: youtubeHandle }) });
+                }
                 showLoading(false);
                 showMessage('✅ Account created successfully!', 'success');
                 setTimeout(() => handleLogin(email, password), 1500);
-                
-            } catch (error) {
-                showLoading(false);
-                showMessage('Error: ' + error.message, 'error');
+            } catch (error) { 
+                showLoading(false); 
+                showMessage('Error: ' + error.message, 'error'); 
             }
         }
 
@@ -129,25 +190,98 @@
                 if (error) throw error;
                 
                 const { data: profile } = await window.supabase.from('profiles').select('role').eq('id', data.user.id).single();
-                window.location.href = profile.role === 'brand' ? '/brand-dashboard.html' : '/influencer-profile.html';
-            } catch (error) {
-                showMessage('Login Error: ' + error.message, 'error');
+                
+                window.location.href = profile.role === 'brand' ? '/brand-dashboard.html' : '/influencer-dashboard.html';
+                
+            } catch (error) { 
+                showMessage('Login Error: ' + error.message, 'error'); 
             }
         }
 
         function showMessage(msg, type) {
             const div = document.getElementById('message');
-            div.textContent = msg;
-            div.className = `message ${type}`;
-            div.style.display = 'block';
+            div.textContent = msg; div.className = `message ${type}`; div.style.display = 'block';
             setTimeout(() => div.style.display = 'none', 4000);
         }
-
+        
         function showLoading(show, text = 'Processing...') {
-            const loader = document.getElementById('loading');
             document.getElementById('loadingText').textContent = text;
-            loader.style.display = show ? 'block' : 'none';
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
         }
     </script>
+    <style>
+        .auth-body { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; }
+
+        .orb { position: fixed; border-radius: 50%; filter: blur(80px); pointer-events: none; z-index: 0; }
+        .orb-1 { width: 500px; height: 500px; background: radial-gradient(circle, rgba(212,168,83,0.12) 0%, transparent 70%); top: -100px; left: -100px; }
+        .orb-2 { width: 400px; height: 400px; background: radial-gradient(circle, rgba(77,217,192,0.08) 0%, transparent 70%); bottom: -80px; right: -80px; }
+        .orb-3 { width: 300px; height: 300px; background: radial-gradient(circle, rgba(244,165,176,0.07) 0%, transparent 70%); top: 50%; left: 50%; transform: translate(-50%, -50%); }
+
+        .auth-container {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 4rem;
+            max-width: 1000px; width: 100%; position: relative; z-index: 1;
+            align-items: center;
+        }
+
+        /* Brand side */
+        .auth-brand { padding: 2rem 0; }
+        .brand-logo { font-family: 'Playfair Display', serif; font-size: 1.6rem; font-weight: 700; color: var(--gold); margin-bottom: 2.5rem; letter-spacing: 0.02em; }
+        .brand-headline { font-size: clamp(2.5rem, 4vw, 3.5rem); font-weight: 900; line-height: 1.1; color: var(--white); margin-bottom: 1.25rem; }
+        .brand-sub { font-size: 1rem; color: var(--text-secondary); line-height: 1.7; margin-bottom: 2.5rem; max-width: 380px; }
+        .brand-features { display: flex; flex-direction: column; gap: 0.85rem; }
+        .feature-item { display: flex; align-items: center; gap: 0.85rem; color: var(--text-secondary); font-size: 0.9rem; }
+        .feature-icon { width: 32px; height: 32px; background: var(--gold-dim); border: 1px solid var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; flex-shrink: 0; }
+
+        /* Auth forms */
+        .auth-forms {
+            background: var(--glass); border: 1px solid var(--glass-border);
+            border-radius: 24px; padding: 2.5rem; backdrop-filter: blur(20px);
+            box-shadow: 0 24px 60px rgba(0,0,0,0.4);
+        }
+
+        .auth-tabs { display: flex; gap: 0.5rem; margin-bottom: 2rem; background: var(--white-10); border-radius: 50px; padding: 4px; }
+        .tab-btn { flex: 1; background: transparent; border: none; color: var(--text-muted); font-family: 'DM Sans', sans-serif; font-size: 0.875rem; font-weight: 600; padding: 0.6rem 1rem; border-radius: 50px; cursor: pointer; transition: all 0.25s; }
+        .tab-btn.active { background: var(--gold); color: var(--midnight); }
+
+        .auth-panel { display: none; }
+        .auth-panel.active { display: block; }
+        .auth-panel-header { margin-bottom: 1.75rem; }
+        .auth-panel-header h2 { font-size: 1.5rem; margin-bottom: 0.35rem; }
+        .auth-panel-header p { font-size: 0.875rem; color: var(--text-muted); }
+
+        /* NEW: Password Wrapper Styles */
+        .password-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .password-wrapper input {
+            width: 100%;
+            padding-right: 45px; /* Leave space for the icon */
+        }
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-muted);
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s;
+        }
+        .toggle-password:hover {
+            color: var(--text-primary);
+        }
+
+        @media (max-width: 768px) {
+            .auth-container { grid-template-columns: 1fr; gap: 2rem; }
+            .auth-brand { text-align: center; }
+            .brand-features { align-items: center; }
+            .brand-sub { margin-left: auto; margin-right: auto; }
+        }
+    </style>
 </body>
 </html>

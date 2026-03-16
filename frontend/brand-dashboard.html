@@ -8,74 +8,68 @@
 </head>
 <body>
     <nav class="navbar">
-        <div class="nav-brand">🎯 ReachIQ</div>
+        <div class="nav-brand">✦ ReachIQ</div>
         <div class="nav-links">
             <a href="brand-dashboard.html" class="active">Dashboard</a>
-            <a href="create-campaign.html">Create Campaign</a>
-            <a href="creator-discovery.html">Find Creators</a>
+            <a href="create-campaign.html">Campaigns</a>
+            <a href="creator-discovery.html">Discover</a>
             <a href="brand-offers.html">Offers</a>
-            <button onclick="logout()" class="btn-logout">Logout</button>
+            <a href="video-tracker.html">Tracker</a>
+            <button onclick="logout()" class="btn-logout">Sign Out</button>
         </div>
     </nav>
 
     <div class="container">
-        <header class="dashboard-header">
-            <h1>Welcome to Your Brand Dashboard</h1>
-            <p>Manage your influencer campaigns and track performance</p>
+        <header class="dashboard-header" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:1rem;">
+            <div>
+                <p style="color:var(--gold);font-size:0.8rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.4rem;">Brand Command Center</p>
+                <h1>Your Brand Dashboard</h1>
+                <p style="margin-top:0.4rem;">Manage campaigns, track creators, and measure your ROI</p>
+            </div>
+            <a href="create-campaign.html" class="btn-primary"><span class="btn-icon">➕</span> New Campaign</a>
         </header>
 
-        <!-- Stats Overview -->
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-icon">📊</div>
-                <div class="stat-content">
-                    <h3>Active Campaigns</h3>
+                <div class="stat-icon-wrap" style="background:rgba(77,217,192,0.1);border:1px solid rgba(77,217,192,0.2);">📊</div>
+                <div>
+                    <p class="stat-label">Active Campaigns</p>
                     <p class="stat-number" id="activeCampaigns">0</p>
                 </div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon">👥</div>
-                <div class="stat-content">
-                    <h3>Pending Offers</h3>
+                <div class="stat-icon-wrap" style="background:rgba(240,201,122,0.1);border:1px solid rgba(240,201,122,0.2);">📬</div>
+                <div>
+                    <p class="stat-label">Pending Offers</p>
                     <p class="stat-number" id="pendingOffers">0</p>
                 </div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon">✅</div>
-                <div class="stat-content">
-                    <h3>Completed Deals</h3>
+                <div class="stat-icon-wrap" style="background:rgba(212,168,83,0.12);border:1px solid rgba(212,168,83,0.2);">✅</div>
+                <div>
+                    <p class="stat-label">Completed Deals</p>
                     <p class="stat-number" id="completedDeals">0</p>
                 </div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon">💰</div>
-                <div class="stat-content">
-                    <h3>Total Spent</h3>
+                <div class="stat-icon-wrap" style="background:rgba(244,165,176,0.1);border:1px solid rgba(244,165,176,0.2);">💸</div>
+                <div>
+                    <p class="stat-label">Total Spent</p>
                     <p class="stat-number" id="totalSpent">$0</p>
                 </div>
             </div>
         </div>
 
-        <!-- Quick Actions -->
         <div class="quick-actions">
-            <h2>Quick Actions</h2>
+            <h2 style="margin-bottom:1.25rem;">Quick Actions</h2>
             <div class="action-buttons">
-                <a href="create-campaign.html" class="btn-primary">
-                    <span class="btn-icon">➕</span>
-                    Create New Campaign
-                </a>
-                <a href="creator-discovery.html" class="btn-secondary">
-                    <span class="btn-icon">🔍</span>
-                    Find Creators
-                </a>
-                <a href="brand-offers.html" class="btn-secondary">
-                    <span class="btn-icon">💬</span>
-                    View Offers
-                </a>
+                <a href="create-campaign.html" class="btn-primary"><span class="btn-icon">➕</span> Create Campaign</a>
+                <a href="creator-discovery.html" class="btn-secondary"><span class="btn-icon">🔍</span> Find Creators</a>
+                <a href="brand-video-tracker.html" class="btn-secondary"><span class="btn-icon">📈</span> Track ROI</a>
+                <a href="brand-offers.html" class="btn-secondary"><span class="btn-icon">💬</span> View Offers</a>
             </div>
         </div>
 
-        <!-- Recent Campaigns -->
         <div class="recent-section">
             <div class="section-header">
                 <h2>Recent Campaigns</h2>
@@ -84,12 +78,11 @@
             <div id="recentCampaigns" class="campaigns-grid">
                 <div class="empty-state">
                     <div class="loading-spinner"></div>
-                    <p>Loading your campaigns...</p>
+                    <p>Loading campaigns...</p>
                 </div>
             </div>
         </div>
 
-        <!-- Recent Offers -->
         <div class="recent-section">
             <div class="section-header">
                 <h2>Recent Offers</h2>
@@ -98,561 +91,316 @@
             <div id="recentOffers" class="offers-list">
                 <div class="empty-state">
                     <div class="loading-spinner"></div>
-                    <p>Loading your offers...</p>
+                    <p>Loading offers...</p>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="campaignModal" class="modal-overlay">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModals()">&times;</span>
+            <h2 id="modalCampName" style="margin-bottom: 0.5rem; color: var(--white);">Campaign Name</h2>
+            <div class="status-badge" id="modalCampStatus" style="display: inline-block; margin-bottom: 1.5rem;">Draft</div>
+
+            <div class="modal-section">
+                <h3>Campaign Brief</h3>
+                <p id="modalCampBrief">Brief text goes here...</p>
+            </div>
+
+            <div class="modal-section">
+                <h3>Campaign Details</h3>
+                <ul class="modal-list">
+                    <li><strong>Budget Range:</strong> <span id="modalCampBudget">--</span></li>
+                    <li><strong>Target Audience:</strong> <span id="modalCampAudience">--</span></li>
+                    <li><strong>Created On:</strong> <span id="modalCampDate">--</span></li>
+                </ul>
+            </div>
+            
+            <div style="margin-top: 2rem; display: flex; gap: 1rem; justify-content: flex-end;">
+                <button class="btn-secondary" onclick="closeModals()">Close</button>
+                <button id="modalCampAction" class="btn-primary">Find Creators</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="offerModal" class="modal-overlay">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModals()">&times;</span>
+            <h2 id="modalOfferCreator" style="margin-bottom: 0.2rem; color: var(--white);">Creator Name</h2>
+            <p style="color: var(--text-muted); margin-bottom: 1rem;">for <strong id="modalOfferCampaign" style="color: var(--gold);">Campaign Name</strong></p>
+            <div class="status-badge" id="modalOfferStatus" style="display: inline-block; margin-bottom: 1.5rem;">Pending</div>
+
+            <div class="modal-section">
+                <h3>Offer Details</h3>
+                <ul class="modal-list">
+                    <li><strong>Current Rate:</strong> <span id="modalOfferRate" style="color: var(--teal); font-weight: bold;">--</span></li>
+                    <li><strong>Date Sent:</strong> <span id="modalOfferDate">--</span></li>
+                </ul>
+            </div>
+            
+            <div style="margin-top: 2rem; display: flex; gap: 1rem; justify-content: flex-end;">
+                <button class="btn-secondary" onclick="closeModals()">Close</button>
+                <a href="brand-offers.html" class="btn-primary">Manage in Offers Tab</a>
             </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js"></script>
     <script>
-        // Supabase configuration
         const SUPABASE_URL = 'https://rbqphouxghbiynlqanmp.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJicXBob3V4Z2hiaXlubHFhbm1wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2NTAzNzIsImV4cCI6MjA3NjIyNjM3Mn0.VWSTqtXNy-twpJWk1VJqWRLfomKex8maiSf6wVuFlLM';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // Check authentication
+        // Global arrays to store data for modals
+        let dashboardCampaigns = [];
+        let dashboardOffers = [];
+
         async function checkAuth() {
             const { data: { user } } = await supabaseClient.auth.getUser();
-            if (!user) {
-                window.location.href = '/';
-                return null;
-            }
+            if (!user) { window.location.href = '/'; return null; }
             return user;
         }
+        async function logout() { await supabaseClient.auth.signOut(); window.location.href = '/'; }
 
-        // Logout function
-        async function logout() {
-            await supabaseClient.auth.signOut();
-            window.location.href = '/';
-        }
-
-        // Load dashboard data
         async function loadDashboardData() {
             const user = await checkAuth();
             if (!user) return;
-
-            console.log('Loading dashboard data for user:', user.id);
-
-            // Load all data in parallel
-            await Promise.all([
-                loadUserCampaigns(user.id),
-                loadUserOffers(user.id),
-                loadDashboardStats(user.id)
-            ]);
+            await Promise.all([loadUserCampaigns(user.id), loadUserOffers(user.id), loadDashboardStats(user.id)]);
         }
 
         async function loadDashboardStats(userId) {
             try {
-                // Get session token for API call
                 const { data: { session } } = await supabaseClient.auth.getSession();
                 if (!session) throw new Error('No session found');
-
-                const response = await fetch('/api/brand/dashboard-stats', {
-                    headers: {
-                        'Authorization': `Bearer ${session.access_token}`
-                    }
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`API error: ${response.status}`);
-                }
-                
+                const response = await fetch('/api/brand/dashboard-stats', { headers: { 'Authorization': `Bearer ${session.access_token}` } });
+                if (!response.ok) throw new Error(`API error: ${response.status}`);
                 const data = await response.json();
-                
                 if (data.status === 'success') {
                     document.getElementById('activeCampaigns').textContent = data.stats.active_campaigns;
                     document.getElementById('pendingOffers').textContent = data.stats.pending_offers;
                     document.getElementById('completedDeals').textContent = data.stats.completed_deals;
                     document.getElementById('totalSpent').textContent = '$' + data.stats.total_spent;
-                } else {
-                    throw new Error(data.error || 'Failed to load stats');
-                }
-            } catch (error) {
-                console.error('Error loading stats:', error);
-                // Fallback to counting from local data
-                updateStatsFromLocalData();
-            }
+                } else throw new Error(data.error || 'Failed to load stats');
+            } catch (error) { console.error('Error loading stats:', error); updateStatsFromLocalData(); }
         }
+
         async function loadUserCampaigns(userId) {
             try {
-                const { data: campaigns, error } = await supabaseClient
-                    .from('campaigns')
-                    .select('*')
-                    .eq('brand_id', userId)
-                    .order('created_at', { ascending: false })
-                    .limit(3);
-
+                const { data: campaigns, error } = await supabaseClient.from('campaigns').select('*').eq('brand_id', userId).order('created_at', { ascending: false }).limit(3);
                 if (error) throw error;
+                
+                dashboardCampaigns = campaigns || []; // Save for modal
 
                 const campaignsGrid = document.getElementById('recentCampaigns');
-                
                 if (!campaigns || campaigns.length === 0) {
-                    campaignsGrid.innerHTML = `
-                        <div class="empty-state">
-                            <p>No campaigns yet. Create your first campaign to get started!</p>
-                            <a href="create-campaign.html" class="btn-primary">Create First Campaign</a>
-                        </div>
-                    `;
+                    campaignsGrid.innerHTML = `<div class="empty-state"><div style="font-size:2.5rem;margin-bottom:1rem">🚀</div><h3>No campaigns yet</h3><p>Launch your first influencer campaign to get started.</p><a href="create-campaign.html" class="btn-primary" style="margin-top:1rem;">Create First Campaign</a></div>`;
                     return;
                 }
-
                 campaignsGrid.innerHTML = campaigns.map(campaign => `
                     <div class="campaign-card">
                         <div class="campaign-header">
                             <h3>${campaign.name}</h3>
                             <span class="status-badge ${campaign.status}">${campaign.status}</span>
                         </div>
-                        <p class="campaign-description">${campaign.brief_text ? campaign.brief_text.substring(0, 100) + '...' : 'No description'}</p>
+                        <p class="campaign-description">${campaign.brief_text ? campaign.brief_text.substring(0, 110) + '...' : 'No description'}</p>
                         <div class="campaign-meta">
-                            <span>Created: ${new Date(campaign.created_at).toLocaleDateString()}</span>
-                            ${campaign.budget_range ? `<span>Budget: ${campaign.budget_range}</span>` : ''}
+                            <span>📅 ${new Date(campaign.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</span>
+                            ${campaign.budget_range ? `<span>💰 ${campaign.budget_range}</span>` : ''}
                         </div>
                         <div class="campaign-actions">
                             <button onclick="viewCampaign('${campaign.id}')" class="btn-secondary">View</button>
-                            <button onclick="findMatchingInfluencers('${campaign.id}')" class="btn-primary">Find Influencers</button>
+                            <button onclick="findMatchingInfluencers('${campaign.id}')" class="btn-primary">Find Creators</button>
                         </div>
-                    </div>
-                `).join('');
-
+                    </div>`).join('');
             } catch (error) {
                 console.error('Error loading campaigns:', error);
-                document.getElementById('recentCampaigns').innerHTML = `
-                    <div class="empty-state error">
-                        <p>Error loading campaigns. Please try again.</p>
-                        <button onclick="loadDashboardData()" class="btn-secondary">Retry</button>
-                    </div>
-                `;
+                document.getElementById('recentCampaigns').innerHTML = `<div class="empty-state"><h3>Error loading campaigns</h3><button onclick="loadDashboardData()" class="btn-secondary">Retry</button></div>`;
             }
         }
 
         async function loadUserOffers(userId) {
             try {
-                const { data: offers, error } = await supabaseClient
-                    .from('offers')
-                    .select(`
-                        *,
-                        campaigns (
-                            name,
-                            budget_range
-                        ),
-                        influencer:profiles!offers_influencer_id_fkey (
-                            full_name,
-                            username
-                        )
-                    `)
-                    .eq('campaigns.brand_id', userId)
-                    .order('created_at', { ascending: false })
-                    .limit(5);
-
+                const { data: offers, error } = await supabaseClient.from('offers').select(`*, campaigns (name, budget_range), influencer:profiles!offers_influencer_id_fkey (full_name, username)`).eq('campaigns.brand_id', userId).order('created_at', { ascending: false }).limit(5);
                 if (error) throw error;
+                
+                dashboardOffers = offers || []; // Save for modal
 
                 const offersList = document.getElementById('recentOffers');
-                
                 if (!offers || offers.length === 0) {
-                    offersList.innerHTML = `
-                        <div class="empty-state">
-                            <p>No offers yet. Create a campaign and send offers to influencers.</p>
-                            <a href="create-campaign.html" class="btn-primary">Create Campaign</a>
-                        </div>
-                    `;
+                    offersList.innerHTML = `<div class="empty-state"><div style="font-size:2.5rem;margin-bottom:1rem">💌</div><h3>No offers yet</h3><p>Create a campaign and start sending offers to creators.</p><a href="create-campaign.html" class="btn-primary" style="margin-top:1rem;">Create Campaign</a></div>`;
                     return;
                 }
-
                 offersList.innerHTML = offers.map(offer => `
                     <div class="offer-item">
                         <div class="offer-main">
                             <div class="offer-header">
-                                <strong>${offer.influencer?.full_name || 'Unknown Influencer'}</strong>
-                                <span class="offer-campaign">for ${offer.campaigns?.name || 'Unknown Campaign'}</span>
+                                <strong style="color:var(--text-primary)">${offer.influencer?.full_name || 'Unknown Creator'}</strong>
+                                <span class="offer-campaign-label">for ${offer.campaigns?.name || 'Unknown Campaign'}</span>
                             </div>
                             <div class="offer-details">
-                                ${offer.negotiated_amount ? 
-                                    `<span class="offer-amount">$${offer.negotiated_amount}</span>` : 
-                                    offer.campaigns?.budget_range ? 
-                                    `<span class="offer-budget">${offer.campaigns.budget_range}</span>` : ''
-                                }
+                                ${offer.negotiated_amount ? `<span class="offer-amount">$${offer.negotiated_amount}</span>` : offer.campaigns?.budget_range ? `<span class="offer-budget">${offer.campaigns.budget_range}</span>` : ''}
                             </div>
                         </div>
                         <div class="offer-meta">
-                            <span class="status ${offer.status}">${offer.status}</span>
-                            <small>${new Date(offer.created_at).toLocaleDateString()}</small>
+                            <span class="status-badge ${offer.status}">${offer.status}</span>
+                            <small style="color:var(--text-muted)">${new Date(offer.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</small>
                         </div>
                         <div class="offer-actions">
                             <button onclick="viewOffer('${offer.id}')" class="btn-secondary">View</button>
-                            ${offer.status === 'pending' ? 
-                                `<button onclick="followUpOffer('${offer.id}')" class="btn-text">Follow Up</button>` : ''}
+                            ${offer.status === 'pending' ? `<button onclick="followUpOffer('${offer.id}')" class="btn-text" style="font-size:0.8rem">Follow Up</button>` : ''}
                         </div>
-                    </div>
-                `).join('');
-
+                    </div>`).join('');
             } catch (error) {
                 console.error('Error loading offers:', error);
-                document.getElementById('recentOffers').innerHTML = `
-                    <div class="empty-state">
-                        <p>No offers yet. Create a campaign and send offers to influencers.</p>
-                    </div>
-                `;
+                document.getElementById('recentOffers').innerHTML = `<div class="empty-state"><h3>No offers yet</h3><p>Create a campaign to start sending offers.</p></div>`;
             }
         }
 
         function updateStatsFromLocalData() {
-            // Fallback: Count from loaded data
             const campaignCards = document.querySelectorAll('.campaign-card');
-            const offerItems = document.querySelectorAll('.offer-item');
-            const pendingOffers = document.querySelectorAll('.status.pending');
-            
+            const pendingOffers = document.querySelectorAll('.status-badge.pending');
             document.getElementById('activeCampaigns').textContent = campaignCards.length;
             document.getElementById('pendingOffers').textContent = pendingOffers.length;
-            document.getElementById('completedDeals').textContent = '0'; // Would need to count accepted offers
-            document.getElementById('totalSpent').textContent = '$0'; // Would need to sum negotiated amounts
+            document.getElementById('completedDeals').textContent = '0';
+            document.getElementById('totalSpent').textContent = '$0';
         }
 
+        function findMatchingInfluencers(campaignId) { window.location.href = `creator-discovery.html?campaign=${campaignId}`; }
+        function followUpOffer(offerId) { window.location.href = 'brand-offers.html'; }
+
+        // --- NEW MODAL FUNCTIONS ---
         function viewCampaign(campaignId) {
-            // For now, redirect to creator discovery with this campaign
-            window.location.href = `creator-discovery.html?campaign=${campaignId}`;
-        }
-
-        function findMatchingInfluencers(campaignId) {
-            window.location.href = `creator-discovery.html?campaign=${campaignId}`;
+            const campaign = dashboardCampaigns.find(c => c.id === campaignId);
+            if(!campaign) return;
+            
+            document.getElementById('modalCampName').textContent = campaign.name;
+            document.getElementById('modalCampStatus').textContent = campaign.status;
+            document.getElementById('modalCampStatus').className = `status-badge ${campaign.status}`;
+            document.getElementById('modalCampBrief').textContent = campaign.brief_text || 'No brief provided.';
+            document.getElementById('modalCampBudget').textContent = campaign.budget_range || 'Not specified';
+            document.getElementById('modalCampAudience').textContent = campaign.target_audience || 'General';
+            document.getElementById('modalCampDate').textContent = new Date(campaign.created_at).toLocaleDateString();
+            
+            document.getElementById('modalCampAction').onclick = () => findMatchingInfluencers(campaign.id);
+            document.getElementById('campaignModal').style.display = 'flex';
         }
 
         function viewOffer(offerId) {
-            alert('Offer details view will be implemented in next phase. Offer ID: ' + offerId);
+            const offer = dashboardOffers.find(o => o.id === offerId);
+            if(!offer) return;
+
+            document.getElementById('modalOfferCreator').textContent = offer.influencer?.full_name || 'Unknown Creator';
+            document.getElementById('modalOfferCampaign').textContent = offer.campaigns?.name || 'Unknown Campaign';
+            document.getElementById('modalOfferStatus').textContent = offer.status;
+            document.getElementById('modalOfferStatus').className = `status-badge ${offer.status}`;
+            
+            let rate = offer.campaigns?.budget_range || 'Negotiable';
+            if (offer.influencer_quote) rate = `$${offer.influencer_quote} (Creator Quote)`;
+            if (offer.negotiated_amount) rate = `$${offer.negotiated_amount} (Agreed)`;
+            
+            document.getElementById('modalOfferRate').textContent = rate;
+            document.getElementById('modalOfferDate').textContent = new Date(offer.created_at).toLocaleDateString();
+            
+            document.getElementById('offerModal').style.display = 'flex';
         }
 
-        function followUpOffer(offerId) {
-            alert('Follow up functionality will be implemented in next phase. Offer ID: ' + offerId);
+        function closeModals() {
+            document.getElementById('campaignModal').style.display = 'none';
+            document.getElementById('offerModal').style.display = 'none';
         }
 
-        // Initialize dashboard when page loads
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal-overlay')) {
+                closeModals();
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', loadDashboardData);
     </script>
 
     <style>
-        .dashboard-header {
-            text-align: center;
-            margin-bottom: 3rem;
-        }
-
-        .dashboard-header h1 {
-            color: #333;
-            margin-bottom: 0.5rem;
-        }
-
-        .dashboard-header p {
-            color: #666;
-            font-size: 1.1rem;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 3rem;
-        }
-
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; margin-bottom: 2rem; }
         .stat-card {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            display: flex;
-            align-items: center;
-            gap: 1rem;
+            background: var(--glass); border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg); padding: 1.5rem;
+            display: flex; align-items: center; gap: 1.25rem;
+            backdrop-filter: blur(12px); transition: all 0.3s;
         }
+        .stat-card:hover { border-color: rgba(212,168,83,0.35); transform: translateY(-2px); box-shadow: var(--shadow-gold); }
+        .stat-icon-wrap { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0; }
+        .stat-label { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.35rem; }
+        .stat-number { font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 700; color: var(--gold); line-height: 1; margin: 0; }
 
-        .stat-icon {
-            font-size: 2rem;
-        }
-
-        .stat-content h3 {
-            margin: 0 0 0.5rem 0;
-            color: #666;
-            font-size: 0.9rem;
-            font-weight: 600;
-        }
-
-        .stat-number {
-            margin: 0;
-            font-size: 2rem;
-            font-weight: bold;
-            color: #667eea;
-        }
-
-        .quick-actions {
-            background: white;
-            padding: 2rem;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 3rem;
-        }
-
-        .quick-actions h2 {
-            margin-bottom: 1.5rem;
-            color: #333;
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
-
-        .btn-icon {
-            margin-right: 0.5rem;
-        }
-
-        .recent-section {
-            background: white;
-            padding: 2rem;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
-        }
-
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-        }
-
-        .section-header h2 {
-            color: #333;
-            margin: 0;
-        }
-
-        .btn-text {
-            color: #667eea;
-            text-decoration: none;
-            font-weight: 600;
-        }
-
-        .btn-text:hover {
-            text-decoration: underline;
-        }
-
-        .campaigns-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1.5rem;
-        }
-
+        .campaigns-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; }
         .campaign-card {
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 1.5rem;
-            background: #fafafa;
-            transition: transform 0.2s ease;
+            border: 1px solid var(--border-subtle); border-radius: var(--radius);
+            padding: 1.5rem; background: var(--white-10); transition: all 0.25s;
         }
+        .campaign-card:hover { border-color: var(--border); background: rgba(255,255,255,0.06); transform: translateY(-2px); }
+        .campaign-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; gap: 0.5rem; }
+        .campaign-header h3 { font-size: 1rem; color: var(--text-primary); margin: 0; }
+        .campaign-description { color: var(--text-muted); font-size: 0.85rem; line-height: 1.5; margin-bottom: 1rem; }
+        .campaign-meta { color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.25rem; }
+        .campaign-actions { display: flex; gap: 0.5rem; }
 
-        .campaign-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-
-        .campaign-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 1rem;
-        }
-
-        .campaign-header h3 {
-            margin: 0;
-            color: #333;
-        }
-
-        .status-badge {
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: capitalize;
-        }
-
-        .status-badge.draft {
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        .status-badge.active {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .campaign-description {
-            color: #666;
-            margin-bottom: 1rem;
-            line-height: 1.4;
-        }
-
-        .campaign-meta {
-            color: #999;
-            font-size: 0.875rem;
-            margin-bottom: 1rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-        }
-
-        .campaign-actions {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .offers-list {
-            display: grid;
-            gap: 1rem;
-        }
-
+        .offers-list { display: flex; flex-direction: column; gap: 0.75rem; }
         .offer-item {
-            display: grid;
-            grid-template-columns: 1fr auto auto;
-            gap: 1.5rem;
-            align-items: center;
-            padding: 1.5rem;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            background: #fafafa;
-            transition: transform 0.2s ease;
+            display: grid; grid-template-columns: 1fr auto auto;
+            gap: 1.25rem; align-items: center; padding: 1.1rem 1.4rem;
+            background: var(--white-10); border: 1px solid var(--border-subtle);
+            border-radius: var(--radius); transition: all 0.25s;
         }
+        .offer-item:hover { background: rgba(255,255,255,0.06); border-color: var(--border); }
+        .offer-main { display: flex; flex-direction: column; gap: 0.35rem; }
+        .offer-header { display: flex; flex-direction: column; gap: 0.2rem; }
+        .offer-campaign-label { color: var(--text-muted); font-size: 0.8rem; }
+        .offer-details { display: flex; gap: 0.75rem; }
+        .offer-amount { color: var(--teal); font-weight: 600; font-size: 0.9rem; }
+        .offer-budget { color: var(--text-muted); font-size: 0.85rem; }
+        .offer-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 0.35rem; min-width: 100px; }
+        .offer-actions { display: flex; gap: 0.5rem; align-items: center; }
 
-        .offer-item:hover {
-            transform: translateY(-1px);
-        }
+        .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; }
+        .status-badge.pending { background: #fef3c7; color: #d97706; }
+        .status-badge.draft { background: rgba(255,255,255,0.1); color: #9ca3af; border: 1px solid #4b5563;}
+        .status-badge.active { background: #d1fae5; color: #059669; }
+        .status-badge.negotiating { background: #e0e7ff; color: #4f46e5; }
+        .status-badge.accepted { background: #d1fae5; color: #059669; }
+        .status-badge.rejected { background: #fee2e2; color: #e11d48; }
 
-        .offer-main {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
+        /* Modal Styles */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7); z-index: 1000; align-items: center; justify-content: center;
+            backdrop-filter: blur(5px);
         }
-
-        .offer-header {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
+        .modal-content {
+            background: var(--navy); border: 1px solid var(--glass-border); border-radius: var(--radius-lg);
+            padding: 2.5rem; max-width: 600px; width: 90%; position: relative; max-height: 90vh; overflow-y: auto;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.4);
         }
-
-        .offer-campaign {
-            color: #666;
-            font-size: 0.9rem;
+        .modal-close {
+            position: absolute; top: 1.5rem; right: 1.5rem; font-size: 2rem; color: var(--text-muted);
+            cursor: pointer; transition: color 0.2s; line-height: 1;
         }
-
-        .offer-details {
-            display: flex;
-            gap: 1rem;
-        }
-
-        .offer-amount {
-            color: #28a745;
-            font-weight: 600;
-        }
-
-        .offer-budget {
-            color: #666;
-            font-size: 0.875rem;
-        }
-
-        .offer-meta {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 0.5rem;
-            min-width: 120px;
-        }
-
-        .status {
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: capitalize;
-        }
-
-        .status.pending {
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        .status.negotiating {
-            background: #d1ecf1;
-            color: #0c5460;
-        }
-
-        .status.accepted {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .offer-actions {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 3rem;
-            color: #666;
-        }
-
-        .empty-state.error {
-            color: #dc3545;
-        }
-
-        .loading-spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 1rem;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+        .modal-close:hover { color: var(--white); }
+        .modal-section { margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-subtle); }
+        .modal-section h3 { font-size: 0.9rem; color: var(--gold); margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-top:0; }
+        .modal-section p { color: var(--text-secondary); font-size: 0.95rem; line-height: 1.6; margin: 0; }
+        .modal-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.75rem; }
+        .modal-list li { color: var(--text-secondary); font-size: 0.95rem; display: flex; gap: 0.5rem; flex-wrap: wrap;}
+        .modal-list li strong { color: var(--white); min-width: 140px; }
 
         @media (max-width: 768px) {
-            .action-buttons {
-                flex-direction: column;
-            }
-            
-            .section-header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 1rem;
-            }
-            
-            .offer-item {
-                grid-template-columns: 1fr;
-                text-align: center;
-            }
-            
-            .offer-meta {
-                align-items: center;
-            }
-            
-            .offer-actions {
-                justify-content: center;
-            }
-            
-            .stats-grid {
-                grid-template-columns: 1fr 1fr;
-            }
+            .offer-item { grid-template-columns: 1fr; }
+            .offer-meta { align-items: flex-start; }
+            .stats-grid { grid-template-columns: 1fr 1fr; }
+            .modal-content { padding: 1.5rem; }
         }
-
         @media (max-width: 480px) {
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .campaigns-grid {
-                grid-template-columns: 1fr;
-            }
+            .stats-grid { grid-template-columns: 1fr; }
+            .campaigns-grid { grid-template-columns: 1fr; }
         }
     </style>
 </body>

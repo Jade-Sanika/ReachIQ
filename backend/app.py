@@ -9,6 +9,9 @@ import json
 import google.generativeai as genai
 import mimetypes
 import requests
+import urllib.parse as urlparse
+from urllib.parse import parse_qs
+import re
 
 # Load environment variables
 load_dotenv()
@@ -59,6 +62,22 @@ def get_current_user():
 
 # --- NEW: Gemini Audio Transcription Function ---
 #
+
+
+def parse_yt_duration(duration_str):
+    """Converts YouTube's ISO 8601 duration (PT1H2M10S) to a readable format (1:02:10)."""
+    hours = re.search(r'(\d+)H', duration_str)
+    minutes = re.search(r'(\d+)M', duration_str)
+    seconds = re.search(r'(\d+)S', duration_str)
+    
+    h = int(hours.group(1)) if hours else 0
+    m = int(minutes.group(1)) if minutes else 0
+    s = int(seconds.group(1)) if seconds else 0
+    
+    if h > 0: return f"{h}:{m:02d}:{s:02d}"
+    return f"{m}:{s:02d}"
+
+
 def transcribe_audio_with_gemini(audio_file_stream, mime_type):
     """
     Uploads audio file stream to Gemini and returns the transcription.
@@ -170,6 +189,214 @@ def generate_profile_from_description(channel_name, description):
     except Exception as e:
         print(f"Gemini Profile Generation Failed: {e}")
         return {} # Return empty dict if it fails, so the code doesn't break
+    
+def extract_video_id(url):
+    """Safely extracts the 11-character YouTube Video ID from various URL formats."""
+    if "youtu.be" in url:
+        return url.split("/")[-1].split("?")[0]
+    parsed_url = urlparse.urlparse(url)
+    return parse_qs(parsed_url.query).get("v", [None])[0]
+
+# --- NEW: Update Offer Status ---
+@app.route('/api/offers/update-status', methods=['POST', 'OPTIONS'])
+def update_offer_status():
+    """Allows influencers or brands to accept, reject, or update an offer."""
+    user_id = get_current_user()
+    if not user_id:
+        return jsonify({"error": "Authentication required"}), 401
+
+    data = request.json
+    offer_id = data.get('offer_id')
+    new_status = data.get('status') # 'accepted', 'rejected', or 'negotiating'
+    negotiated_amount = data.get('negotiated_amount')
+
+    if not offer_id or not new_status:
+        return jsonify({"error": "Offer ID and new status are required"}), 400
+
+    try:
+        update_payload = {'status': new_status}
+        if negotiated_amount:
+            update_payload['negotiated_amount'] = negotiated_amount
+
+        # Update the offer in Supabase
+        response = supabase.table('offers').update(update_payload).eq('id', offer_id).execute()
+        
+        return jsonify({
+            "status": "success",
+            "message": f"Offer updated to {new_status}",
+            "data": response.data
+        })
+    except Exception as e:
+        print(f"Error updating offer: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+# --- NEW: AI Smart Reply Generator ---
+@app.route('/api/influencer/generate-smart-reply', methods=['POST', 'OPTIONS'])
+def generate_smart_reply():
+    """Generates professional email replies for influencers negotiating with brands."""
+    user_id = get_current_user()
+    if not user_id:
+        return jsonify({"error": "Authentication required"}), 401
+
+    data = request.json
+    offer_id = data.get('offer_id')
+
+    try:
+        # 1. Fetch the specific offer, campaign, and brand details
+        offer_res = supabase.table('offers').select(
+            '*, campaigns(name, brief_text, budget_range, brand:profiles!campaigns_brand_id_fkey(full_name))'
+        ).eq('id', offer_id).single().execute()
+        
+        offer = offer_res.data
+        if not offer:
+            return jsonify({"error": "Offer not found"}), 404
+            
+        campaign = offer.get('campaigns', {})
+        brand_name = campaign.get('brand', {}).get('full_name', 'the brand')
+        budget = campaign.get('budget_range', 'Negotiable')
+        brief = campaign.get('brief_text', '')
+
+        # 2. Ask Gemini to generate 3 options
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        generation_config = genai.GenerationConfig(response_mime_type="application/json")
+        
+        prompt = f"""
+        You are an elite Talent Manager for an influencer. The influencer just received a brand deal offer.
+        Brand: {brand_name}
+        Campaign Name: {campaign.get('name')}
+        Budget Offered: {budget}
+        Campaign Brief: "{brief}"
+
+        Draft 3 professional email replies for the influencer to choose from:
+        1. An enthusiastic ACCEPTANCE of the offer.
+        2. A polite COUNTER-OFFER asking for a slightly higher budget, mentioning their high engagement rate.
+        3. A professional DECLINE, stating they don't have the bandwidth right now but would love to work together in the future.
+
+        Return valid JSON in this exact format:
+        {{
+            "accept": "Drafted text here",
+            "counter": "Drafted text here",
+            "decline": "Drafted text here"
+        }}
+        """
+        
+        response = model.generate_content(prompt, generation_config=generation_config)
+        
+        return jsonify({
+            "status": "success",
+            "replies": json.loads(response.text)
+        })
+
+    except Exception as e:
+        print(f"Error generating smart reply: {e}")
+        return jsonify({"error": str(e)}), 500
+
+# --- NEW: AI Rate Calculator ---
+@app.route('/api/influencer/calculate-rate', methods=['GET'])
+def calculate_ai_rate():
+    user_id = get_current_user()
+    if not user_id:
+        return jsonify({"error": "Authentication required"}), 401
+
+    try:
+        # Fetch creator stats from DB
+        profile_res = supabase.table('influencer_profiles').select('*').eq('profile_id', user_id).single().execute()
+        stats = profile_res.data
+        
+        if not stats:
+            return jsonify({"error": "Profile not found"}), 404
+
+        views = stats.get('total_views', 0)
+        videos = stats.get('video_count', 0)
+        engagement = stats.get('engagement_rate', 0) or 0
+        niche = stats.get('niche', 'general')
+
+        # Prevent division by zero
+        avg_views = views / videos if videos > 0 else 0
+
+        # Baseline Math: Base CPM of $20 per 1,000 views
+        base_rate = (avg_views / 1000) * 20
+
+        # Niche Multipliers (Finance/Tech pay more)
+        premium_niches = ['finance', 'business', 'tech', 'education']
+        niche_multiplier = 1.4 if niche.lower() in premium_niches else 1.0
+
+        # Engagement Multiplier (High engagement = higher rate)
+        eng_multiplier = 1.0
+        if engagement > 5.0: eng_multiplier = 1.3
+        elif engagement > 3.0: eng_multiplier = 1.1
+
+        # Final Calculation
+        recommended_rate = base_rate * niche_multiplier * eng_multiplier
+        
+        # Set a minimum floor so it doesn't say $0 for new creators
+        if recommended_rate < 50: recommended_rate = 50
+
+        min_rate = round(recommended_rate * 0.8)
+        max_rate = round(recommended_rate * 1.5)
+        recommended_rate = round(recommended_rate)
+
+        # Ask Gemini to write a personalized explanation
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        prompt = f"""
+        Act as an Influencer Talent Manager. The creator has {avg_views} average views, a {engagement}% engagement rate, and creates {niche} content.
+        I have calculated their fair market rate to be ${recommended_rate}.
+        Write a short, encouraging 3-sentence explanation of WHY they deserve this rate, mentioning their specific stats.
+        """
+        explanation = model.generate_content(prompt).text.strip()
+
+        return jsonify({
+            "status": "success",
+            "data": {
+                "min_rate": min_rate,
+                "max_rate": max_rate,
+                "recommended_rate": recommended_rate,
+                "explanation": explanation
+            }
+        })
+
+    except Exception as e:
+        print(f"Rate Calc Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+# --- NEW: AI Profile Polish ---
+@app.route('/api/influencer/polish-profile', methods=['POST'])
+def polish_profile():
+    user_id = get_current_user()
+    if not user_id:
+        return jsonify({"error": "Authentication required"}), 401
+
+    data = request.json
+    current_bio = data.get('bio', '')
+    niche = data.get('niche', '')
+
+    try:
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        generation_config = genai.GenerationConfig(response_mime_type="application/json")
+        
+        prompt = f"""
+        You are a top-tier PR agent for influencers. Rewrite the following creator bio to make it highly attractive to corporate brand sponsors. 
+        It must sound professional, dynamic, and highlight their value in the '{niche}' niche.
+        Keep it to 2-3 punchy sentences. Don't use emojis.
+        
+        Original Bio: "{current_bio}"
+
+        Return a valid JSON exactly like this:
+        {{ "polished_bio": "The newly written bio goes here" }}
+        """
+        
+        response = model.generate_content(prompt, generation_config=generation_config)
+        return jsonify({
+            "status": "success",
+            "data": json.loads(response.text)
+        })
+
+    except Exception as e:
+        print(f"Profile Polish Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
 
 
 # Serve frontend files
@@ -204,28 +431,48 @@ def sync_youtube_stats():
         yt_url = f"https://youtube.googleapis.com/youtube/v3/channels?part=snippet,statistics,contentDetails&forHandle={handle}&key={YOUTUBE_API_KEY}"
         yt_res = requests.get(yt_url).json()
 
-        # 🚨 NEW: Catch the exact YouTube API error and print it!
         if "error" in yt_res:
             error_message = yt_res['error'].get('message', 'Unknown YouTube Error')
-            print(f"❌ YOUTUBE API ERROR: {error_message}")
             return jsonify({"error": f"YouTube API Error: {error_message}"}), 400
 
         if "items" not in yt_res or not yt_res["items"]:
-            print(f"❌ Channel {handle} not found on YouTube.")
             return jsonify({"error": f"YouTube channel {handle} not found."}), 404
 
-        print("✅ Channel found! Extracting stats...")
         channel = yt_res["items"][0]
         title = channel["snippet"]["title"]
         description = channel["snippet"]["description"]
         avatar_url = channel["snippet"]["thumbnails"]["high"]["url"]
         
+        # --- NEW: Extract native YouTube Data ---
+        country = channel["snippet"].get("country", "")
+        language = channel["snippet"].get("defaultLanguage", "")
+        languages_array = [language] if language else []
+
+        # --- NEW: Smart Regex to extract social links from description ---
+        ig_match = re.search(r'(?:instagram\.com/|ig: @?)([a-zA-Z0-9_.]+)', description, re.I)
+        instagram_handle = f"@{ig_match.group(1)}" if ig_match else ""
+
+        tw_match = re.search(r'(?:twitter\.com/|x\.com/|twitter: @?)([a-zA-Z0-9_]+)', description, re.I)
+        twitter_handle = f"@{tw_match.group(1)}" if tw_match else ""
+
+        tk_match = re.search(r'(?:tiktok\.com/|tiktok: @?)(@?[a-zA-Z0-9_.]+)', description, re.I)
+        tiktok_handle = tk_match.group(1) if tk_match else ""
+        if tk_match and not tiktok_handle.startswith('@'): 
+            tiktok_handle = f"@{tiktok_handle}"
+
+        # Find first valid http link that isn't a social media site
+        website_url = ""
+        web_matches = re.findall(r'(https?://[^\s]+)', description, re.I)
+        for link in web_matches:
+            if not any(social in link for social in ['instagram.com', 'twitter.com', 'x.com', 'tiktok.com', 'youtube.com']):
+                website_url = link
+                break
+
         stats = channel["statistics"]
         subscribers = int(stats.get("subscriberCount", 0))
         total_views = int(stats.get("viewCount", 0))
         video_count = int(stats.get("videoCount", 0))
         
-        # Try to get the uploads playlist, default to None if the channel has no videos
         uploads_playlist_id = None
         if "contentDetails" in channel and "relatedPlaylists" in channel["contentDetails"]:
             uploads_playlist_id = channel["contentDetails"]["relatedPlaylists"].get("uploads")
@@ -233,7 +480,6 @@ def sync_youtube_stats():
         # 2. Fetch last 5 videos to calculate Engagement Rate
         engagement_rate = 0.0
         if uploads_playlist_id:
-            print("🎬 Fetching recent videos for engagement rate...")
             playlist_url = f"https://youtube.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId={uploads_playlist_id}&maxResults=5&key={YOUTUBE_API_KEY}"
             playlist_res = requests.get(playlist_url).json()
             
@@ -256,11 +502,24 @@ def sync_youtube_stats():
                     engagement_rate = round((recent_engagements / recent_views) * 100, 2)
 
         # 3. Use Gemini AI to generate profile details
-        print("🤖 Asking Gemini AI to build the profile...")
         ai_profile = generate_profile_from_description(title, description)
+        niche = ai_profile.get('niche', 'lifestyle').lower()
 
-        # 4. Update Database
-        print("💾 Saving all data to Supabase...")
+        # 4. Calculate Market Rate
+        avg_views = total_views / video_count if video_count > 0 else 0
+        base_rate = (avg_views / 1000) * 20 
+        
+        premium_niches = ['finance', 'business', 'tech', 'education']
+        niche_multiplier = 1.4 if niche in premium_niches else 1.0
+        
+        eng_multiplier = 1.0
+        if engagement_rate > 5.0: eng_multiplier = 1.3
+        elif engagement_rate > 3.0: eng_multiplier = 1.1
+            
+        recommended_rate = max(50, base_rate * niche_multiplier * eng_multiplier)
+        calculated_rate_range = f"${int(recommended_rate * 0.8)} - ${int(recommended_rate * 1.5)}"
+
+        # 5. Update Database
         supabase.table('profiles').update({'avatar_url': avatar_url, 'full_name': title}).eq('id', user_id).execute()
 
         influencer_data = {
@@ -272,22 +531,30 @@ def sync_youtube_stats():
             'platform': 'youtube',
             'channel_description': description,
             'bio': ai_profile.get('bio', 'Content creator on YouTube.'),
-            'niche': ai_profile.get('niche', 'lifestyle'),
+            'niche': niche,
             'audience_age': ai_profile.get('audience_age', '18-24'),
             'audience_gender': ai_profile.get('audience_gender', 'mixed'),
             'audience_interests': ai_profile.get('audience_interests', ''),
-            'content_description': ai_profile.get('content_description', '')
+            'content_description': ai_profile.get('content_description', ''),
+            'rate_range': calculated_rate_range,
+            
+            # --- NEW AUTO-FETCHED FIELDS ---
+            'location': country,
+            'languages': languages_array,
+            'instagram_handle': instagram_handle,
+            'twitter_handle': twitter_handle,
+            'tiktok_handle': tiktok_handle,
+            'website_url': website_url
         }
 
         supabase.table('influencer_profiles').update(influencer_data).eq('profile_id', user_id).execute()
 
-        print("🎉 Sync Complete!")
         return jsonify({"status": "success", "message": "Synced & Generated", "data": influencer_data})
 
     except Exception as e:
         print(f"❌ CRITICAL ERROR syncing YouTube: {e}")
         return jsonify({"error": str(e)}), 500
-    
+        
     # API Routes
 @app.route('/api/health', methods=['GET'])
 def health_check():
@@ -608,6 +875,87 @@ def send_offer():
             
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
+@app.route('/api/brand/analyze-video', methods=['POST', 'OPTIONS'])
+def analyze_video():
+    """Analyzes a specific YouTube video for ROI and performance tracking."""
+    user_id = get_current_user()
+    if not user_id:
+        return jsonify({"error": "Authentication required"}), 401
+        
+    data = request.json
+    url = data.get('youtube_url', '')
+    milestone_target = int(data.get('milestone') or 0)
+
+    # --- BULLETPROOF VIDEO ID EXTRACTION ---
+    # This regex catches standard watch links, youtu.be short links, embed links, AND YouTube Shorts!
+    yt_regex = r'(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})'
+    match = re.search(yt_regex, url)
+    
+    if match:
+        video_id = match.group(1)
+    else:
+        return jsonify({"error": "Could not extract a valid 11-character Video ID from the URL."}), 400
+
+    try:
+        # Fetch Snippet, Statistics, AND ContentDetails
+        yt_url = f"https://youtube.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id={video_id}&key={YOUTUBE_API_KEY}"
+        res = requests.get(yt_url).json()
+
+        if not res.get("items"):
+            return jsonify({"error": "Video not found or is set to private."}), 404
+
+        video = res["items"][0]
+        snippet = video["snippet"]
+        stats = video["statistics"]
+        content_details = video["contentDetails"]
+
+        views = int(stats.get("viewCount", 0))
+        likes = int(stats.get("likeCount", 0))
+        comments = int(stats.get("commentCount", 0))
+        
+        # Advanced Calculations
+        engagement_rate = round(((likes + comments) / views * 100), 2) if views > 0 else 0
+        like_ratio = round((likes / views * 100), 2) if views > 0 else 0
+        
+        # Milestone logic
+        is_reached = views >= milestone_target if milestone_target > 0 else False
+        progress_pct = (views / milestone_target * 100) if milestone_target > 0 else 0
+
+        # Duration & Tags
+        raw_duration = content_details.get("duration", "PT0S")
+        readable_duration = parse_yt_duration(raw_duration)
+        tags = snippet.get("tags", [])[:5] # Get top 5 tags
+
+        response_data = {
+            "title": snippet["title"],
+            "channel_name": snippet["channelTitle"],
+            "published_at": snippet["publishedAt"][:10], # YYYY-MM-DD
+            "thumbnail": snippet["thumbnails"].get("maxres", snippet["thumbnails"]["high"])["url"],
+            "video_meta": {
+                "duration": readable_duration,
+                "tags": tags
+            },
+            "metrics": {
+                "views": views,
+                "likes": likes,
+                "comments": comments,
+                "engagement_rate": engagement_rate,
+                "like_to_view_ratio": like_ratio
+            },
+            "milestone": {
+                "target": milestone_target,
+                "progress_percentage": progress_pct,
+                "is_reached": is_reached,
+                "views_remaining": max(0, milestone_target - views)
+            }
+        }
+
+        return jsonify({"status": "success", "data": response_data})
+
+    except Exception as e:
+        print(f"Error analyzing video: {e}")
+        return jsonify({"error": "Failed to connect to YouTube API."}), 500
     
 # Get brand dashboard stats - TEMPORARY FIX: Return mock data
 @app.route('/api/brand/dashboard-stats', methods=['GET'])

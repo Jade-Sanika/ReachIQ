@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Rate Calculator — ReachIQ</title>
+    <link rel="stylesheet" href="styles/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">✦ ReachIQ</div>
+        <div class="nav-links">
+            <a href="influencer-dashboard.html">Dashboard</a>
+            <a href="influencer-offers.html">Offers</a>
+            <a href="influencer-profile.html">Profile</a>
+            <button onclick="logout()" class="btn-logout">Sign Out</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header class="dashboard-header" style="text-align:center;max-width:560px;margin:0 auto 2.5rem;">
+            <p style="color:var(--gold);font-size:0.8rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.5rem;">Creator Tools</p>
+            <h1>AI Rate Calculator</h1>
+            <p style="margin-top:0.5rem;font-size:1rem;">Discover your market value and what brands should be paying you — powered by AI analysis of your channel metrics.</p>
+        </header>
+
+        <div class="rate-page-layout">
+
+            <!-- Main Card -->
+            <div class="rate-main-card">
+
+                <!-- Loading State -->
+                <div id="loadingState" style="text-align:center;padding:3rem 2rem;">
+                    <div class="rate-loading-ring">
+                        <div class="ring-segment"></div>
+                    </div>
+                    <h3 style="font-size:1.1rem;margin-top:1.5rem;margin-bottom:0.5rem;">Analyzing your channel</h3>
+                    <p class="loading-status" id="loadingStatus">Fetching metrics & comparing against market data...</p>
+                </div>
+
+                <!-- Result State -->
+                <div id="resultState" style="display:none;">
+                    <div class="rate-result-header">
+                        <p style="color:var(--gold);font-size:0.78rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.5rem;">Your Recommended Rate</p>
+                        <p style="color:var(--text-muted);font-size:0.85rem;">per sponsored video</p>
+                    </div>
+
+                    <div class="rate-display">
+                        <div class="rate-bound">
+                            <p class="rate-bound-label">Min</p>
+                            <p class="rate-bound-value" id="minRate">$0</p>
+                        </div>
+                        <div class="rate-main-value">
+                            <p class="rate-main-label">Recommended</p>
+                            <p id="recommendedRate">$0</p>
+                        </div>
+                        <div class="rate-bound">
+                            <p class="rate-bound-label">Max</p>
+                            <p class="rate-bound-value" id="maxRate">$0</p>
+                        </div>
+                    </div>
+
+                    <!-- Divider -->
+                    <div style="width:100%;height:1px;background:var(--border-subtle);margin:2rem 0;"></div>
+
+                    <!-- AI Explanation -->
+                    <div class="ai-explanation-card">
+                        <div class="ai-explanation-header">
+                            <span class="ai-chip">✦ AI Analysis</span>
+                        </div>
+                        <p id="aiExplanationText" style="margin-top:1rem;line-height:1.7;color:var(--text-secondary);font-size:0.9rem;">Loading explanation...</p>
+                    </div>
+
+                    <!-- Rate Factors -->
+                    <div class="rate-factors">
+                        <p style="font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:1rem;">Factors in your rate</p>
+                        <div class="factors-grid">
+                            <div class="factor-item"><span class="factor-icon">👥</span><span class="factor-label">Subscriber Count</span></div>
+                            <div class="factor-item"><span class="factor-icon">📊</span><span class="factor-label">Engagement Rate</span></div>
+                            <div class="factor-item"><span class="factor-icon">🎯</span><span class="factor-label">Niche Premium</span></div>
+                            <div class="factor-item"><span class="factor-icon">📈</span><span class="factor-label">Growth Velocity</span></div>
+                            <div class="factor-item"><span class="factor-icon">💬</span><span class="factor-label">Comment Depth</span></div>
+                            <div class="factor-item"><span class="factor-icon">🌍</span><span class="factor-label">Audience Location</span></div>
+                        </div>
+                    </div>
+
+                    <a href="influencer-profile.html" class="btn-primary" style="width:100%;justify-content:center;padding:0.9rem;margin-top:2rem;font-size:0.95rem;">
+                        Update Rate on Profile →
+                    </a>
+                </div>
+
+                <!-- Error State -->
+                <div id="errorState" style="display:none;text-align:center;padding:2.5rem;">
+                    <div style="font-size:3rem;margin-bottom:1rem;">⚠️</div>
+                    <h3 style="margin-bottom:0.75rem;">Couldn't calculate rate</h3>
+                    <p id="errorText" style="font-size:0.875rem;color:var(--danger);margin-bottom:1.5rem;">Failed to calculate rate.</p>
+                    <a href="influencer-dashboard.html" class="btn-secondary">← Go Back</a>
+                </div>
+            </div>
+
+            <!-- Side Tips -->
+            <div class="rate-sidebar">
+                <div class="sidebar-card">
+                    <h3 style="font-size:0.95rem;margin-bottom:1.25rem;color:var(--gold);">✦ Negotiation Tips</h3>
+                    <div class="tip-list">
+                        <div class="side-tip">
+                            <div class="side-tip-num">01</div>
+                            <div>
+                                <p style="font-size:0.85rem;font-weight:600;color:var(--text-primary);margin-bottom:0.25rem;">Start with your max</p>
+                                <p style="font-size:0.8rem;color:var(--text-muted);">Brands expect negotiation — quote above your target to leave room.</p>
+                            </div>
+                        </div>
+                        <div class="side-tip">
+                            <div class="side-tip-num">02</div>
+                            <div>
+                                <p style="font-size:0.85rem;font-weight:600;color:var(--text-primary);margin-bottom:0.25rem;">Anchor on your engagement</p>
+                                <p style="font-size:0.8rem;color:var(--text-muted);">High engagement justifies higher rates than follower count alone.</p>
+                            </div>
+                        </div>
+                        <div class="side-tip">
+                            <div class="side-tip-num">03</div>
+                            <div>
+                                <p style="font-size:0.85rem;font-weight:600;color:var(--text-primary);margin-bottom:0.25rem;">Bundle for more value</p>
+                                <p style="font-size:0.8rem;color:var(--text-muted);">Offer video + stories + community posts as a package deal.</p>
+                            </div>
+                        </div>
+                        <div class="side-tip">
+                            <div class="side-tip-num">04</div>
+                            <div>
+                                <p style="font-size:0.85rem;font-weight:600;color:var(--text-primary);margin-bottom:0.25rem;">Know your usage rights</p>
+                                <p style="font-size:0.8rem;color:var(--text-muted);">If the brand wants to repurpose your content, charge a premium.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sidebar-card" style="margin-top:1.25rem;">
+                    <h3 style="font-size:0.95rem;margin-bottom:1rem;color:var(--text-secondary);">Industry Benchmarks</h3>
+                    <div class="benchmark-item"><span class="bench-tier">Nano</span><span class="bench-range">1K–10K followers</span><span class="bench-rate">$50–$200</span></div>
+                    <div class="benchmark-item"><span class="bench-tier">Micro</span><span class="bench-range">10K–100K</span><span class="bench-rate">$200–$2K</span></div>
+                    <div class="benchmark-item"><span class="bench-tier">Mid</span><span class="bench-range">100K–500K</span><span class="bench-rate">$2K–$10K</span></div>
+                    <div class="benchmark-item"><span class="bench-tier">Macro</span><span class="bench-range">500K–1M</span><span class="bench-rate">$10K–$30K</span></div>
+                    <div class="benchmark-item"><span class="bench-tier">Mega</span><span class="bench-range">1M+</span><span class="bench-rate">$30K+</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js"></script>
+    <script>
+        const SUPABASE_URL = 'https://rbqphouxghbiynlqanmp.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJicXBob3V4Z2hiaXlubHFhbm1wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2NTAzNzIsImV4cCI6MjA3NjIyNjM3Mn0.VWSTqtXNy-twpJWk1VJqWRLfomKex8maiSf6wVuFlLM';
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        async function init() {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) return window.location.href = '/';
+                const response = await fetch('/api/influencer/calculate-rate', { headers: { 'Authorization': `Bearer ${session.access_token}` } });
+                const result = await response.json();
+                document.getElementById('loadingState').style.display = 'none';
+                if (result.status === 'success') {
+                    document.getElementById('resultState').style.display = 'block';
+                    document.getElementById('minRate').textContent = '$' + result.data.min_rate.toLocaleString();
+                    document.getElementById('recommendedRate').textContent = '$' + result.data.recommended_rate.toLocaleString();
+                    document.getElementById('maxRate').textContent = '$' + result.data.max_rate.toLocaleString();
+                    document.getElementById('aiExplanationText').textContent = result.data.explanation;
+                } else throw new Error(result.error);
+            } catch (error) {
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('errorState').style.display = 'block';
+                document.getElementById('errorText').textContent = error.message;
+            }
+        }
+
+        async function logout() { await supabase.auth.signOut(); window.location.href = '/'; }
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+
+    <style>
+        .rate-page-layout { display: grid; grid-template-columns: 1fr 360px; gap: 1.5rem; align-items: start; }
+
+        .rate-main-card {
+            background: var(--glass); border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg); padding: 2.5rem;
+            backdrop-filter: blur(16px);
+        }
+
+        /* Loading ring */
+        .rate-loading-ring { width: 72px; height: 72px; margin: 0 auto; position: relative; }
+        .rate-loading-ring::before {
+            content: ''; position: absolute; inset: 0;
+            border-radius: 50%; border: 3px solid var(--border-subtle);
+            border-top-color: var(--gold); animation: spin 1s linear infinite;
+        }
+        .rate-loading-ring::after {
+            content: '✦'; position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem; color: var(--gold); opacity: 0.6;
+        }
+        .loading-status { font-size: 0.875rem; color: var(--text-muted); }
+
+        /* Rate display */
+        .rate-result-header { text-align: center; margin-bottom: 2rem; }
+        .rate-display { display: flex; justify-content: center; align-items: center; gap: 2.5rem; padding: 1.5rem 0; }
+        .rate-bound { text-align: center; }
+        .rate-bound-label { font-size: 0.7rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.4rem; }
+        .rate-bound-value { font-family: 'Playfair Display', serif; font-size: 1.75rem; font-weight: 700; color: var(--text-secondary); }
+        .rate-main-value { text-align: center; }
+        .rate-main-label { font-size: 0.7rem; font-weight: 600; color: var(--gold); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem; }
+        .rate-main-value p:last-child { font-family: 'Playfair Display', serif; font-size: 4.5rem; font-weight: 900; color: var(--gold); line-height: 1; text-shadow: 0 0 40px rgba(212,168,83,0.4); }
+
+        /* AI explanation */
+        .ai-explanation-card { background: var(--white-10); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 1.5rem; border-left: 3px solid var(--gold); }
+        .ai-explanation-header { display: flex; align-items: center; gap: 0.5rem; }
+        .ai-chip { background: var(--gold-dim); color: var(--gold); border: 1px solid var(--border); padding: 3px 10px; border-radius: 50px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; }
+
+        /* Rate factors */
+        .rate-factors { margin-top: 2rem; }
+        .factors-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
+        .factor-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.75rem; background: var(--white-10); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); transition: all 0.2s; }
+        .factor-item:hover { border-color: var(--border); }
+        .factor-icon { font-size: 1rem; flex-shrink: 0; }
+        .factor-label { font-size: 0.75rem; font-weight: 500; color: var(--text-muted); }
+
+        /* Sidebar */
+        .sidebar-card { background: var(--glass); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: 1.5rem; backdrop-filter: blur(12px); }
+        .tip-list { display: flex; flex-direction: column; gap: 1.25rem; }
+        .side-tip { display: flex; gap: 1rem; align-items: flex-start; }
+        .side-tip-num { font-family: 'Playfair Display', serif; font-size: 1.1rem; font-weight: 700; color: var(--gold); opacity: 0.5; flex-shrink: 0; min-width: 24px; }
+
+        .benchmark-item { display: flex; align-items: center; padding: 0.6rem 0; border-bottom: 1px solid var(--border-subtle); gap: 0.75rem; }
+        .benchmark-item:last-child { border-bottom: none; }
+        .bench-tier { font-size: 0.78rem; font-weight: 700; color: var(--gold); min-width: 42px; }
+        .bench-range { font-size: 0.78rem; color: var(--text-muted); flex: 1; }
+        .bench-rate { font-size: 0.78rem; font-weight: 600; color: var(--teal); }
+
+        @media (max-width: 1024px) { .rate-page-layout { grid-template-columns: 1fr; } }
+        @media (max-width: 480px) { .rate-display { gap: 1.25rem; } .rate-main-value p:last-child { font-size: 3.5rem; } .factors-grid { grid-template-columns: repeat(2, 1fr); } }
+    </style>
+</body>
+</html>

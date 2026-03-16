@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Offers — ReachIQ</title>
+    <link rel="stylesheet" href="styles/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">✦ ReachIQ</div>
+        <div class="nav-links">
+            <a href="brand-dashboard.html">Dashboard</a>
+            <a href="create-campaign.html">Campaigns</a>
+            <a href="creator-discovery.html">Discover</a>
+            <a href="brand-offers.html" class="active">Offers</a>
+            <a href="video-tracker.html">Tracker</a>
+            <button onclick="logout()" class="btn-logout">Sign Out</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header class="dashboard-header" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:1rem;">
+            <div>
+                <p style="color:var(--gold);font-size:0.8rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.4rem;">Campaign Negotiations</p>
+                <h1>Manage Creator Offers</h1>
+                <p style="margin-top:0.4rem;">Track campaign invitations and negotiate final rates with creators.</p>
+            </div>
+            <a href="creator-discovery.html" class="btn-primary"><span>+</span> Send New Offers</a>
+        </header>
+
+        <!-- Filter Tabs -->
+        <div class="filter-tabs-bar">
+            <button class="filter-tab active" onclick="filterOffers('all', event)">All <span class="tab-count" id="count-all">0</span></button>
+            <button class="filter-tab" onclick="filterOffers('pending', event)">Pending <span class="tab-count" id="count-pending">0</span></button>
+            <button class="filter-tab" onclick="filterOffers('negotiating', event)">Negotiating <span class="tab-count" id="count-negotiating">0</span></button>
+            <button class="filter-tab" onclick="filterOffers('accepted', event)">Accepted <span class="tab-count" id="count-accepted">0</span></button>
+            <button class="filter-tab" onclick="filterOffers('rejected', event)">Declined <span class="tab-count" id="count-rejected">0</span></button>
+        </div>
+
+        <div id="offersContainer" class="offers-stack">
+            <div style="text-align:center;padding:4rem;">
+                <div class="loading-spinner"></div>
+                <p style="margin-top:1rem;">Loading offers...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js"></script>
+    <script>
+        const SUPABASE_URL = 'https://rbqphouxghbiynlqanmp.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJicXBob3V4Z2hiaXlubHFhbm1wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2NTAzNzIsImV4cCI6MjA3NjIyNjM3Mn0.VWSTqtXNy-twpJWk1VJqWRLfomKex8maiSf6wVuFlLM';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        let allOffers = [];
+        let currentFilter = 'all';
+
+        async function init() {
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session) return window.location.href = '/';
+                const { data, error } = await supabaseClient
+                    .from('offers')
+                    .select(`*, campaigns!inner ( brand_id, name, budget_range ), influencer:profiles!offers_influencer_id_fkey ( full_name, username )`)
+                    .eq('campaigns.brand_id', session.user.id)
+                    .order('id', { ascending: false });
+                if (error) throw error;
+                allOffers = data || [];
+                updateCounts();
+                renderOffers('all');
+            } catch (err) {
+                console.error("Error:", err);
+                document.getElementById('offersContainer').innerHTML = `<div style="text-align:center;padding:3rem;color:var(--danger);">Error loading offers. Please try again.</div>`;
+            }
+        }
+
+        function updateCounts() {
+            const statuses = ['all', 'pending', 'negotiating', 'accepted', 'rejected'];
+            statuses.forEach(s => {
+                const count = s === 'all' ? allOffers.length : allOffers.filter(o => o.status === s).length;
+                const el = document.getElementById(`count-${s}`);
+                if (el) el.textContent = count;
+            });
+        }
+
+        function filterOffers(status, event) {
+            currentFilter = status;
+            document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+            if (event) event.currentTarget.classList.add('active');
+            renderOffers(status);
+        }
+
+        function renderOffers(statusFilter) {
+            const container = document.getElementById('offersContainer');
+            const filtered = statusFilter === 'all' ? allOffers : allOffers.filter(o => o.status === statusFilter);
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div style="background:var(--glass);border:1px dashed var(--border);border-radius:var(--radius-lg);padding:4rem;text-align:center;backdrop-filter:blur(12px);">
+                        <div style="font-size:3rem;margin-bottom:1rem">💌</div>
+                        <h3 style="margin-bottom:0.5rem;">No ${statusFilter === 'all' ? '' : statusFilter} offers</h3>
+                        <p style="margin-bottom:1.5rem;">Head to Creator Discovery to send campaign invitations.</p>
+                        <a href="creator-discovery.html" class="btn-primary">Find Creators</a>
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = filtered.map(offer => {
+                const influencerName = offer.influencer?.full_name || 'Creator';
+                const influencerHandle = offer.influencer?.username ? `@${offer.influencer.username}` : '';
+                const campaignName = offer.campaigns?.name || 'Unnamed Campaign';
+                let displayRate = offer.campaigns?.budget_range || 'Negotiable';
+                if (offer.influencer_quote) displayRate = `$${offer.influencer_quote}`;
+                if (offer.negotiated_amount) displayRate = `$${offer.negotiated_amount}`;
+                const isAgreed = !!offer.negotiated_amount;
+                const dateSent = offer.created_at ? new Date(offer.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) : 'Recently';
+                const initials = influencerName.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+
+                return `
+                <div class="brand-offer-card">
+                    <div class="brand-offer-left">
+                        <div class="creator-avatar-sm">${initials}</div>
+                        <div class="brand-offer-info">
+                            <p class="brand-offer-creator">${influencerName} <span>${influencerHandle}</span></p>
+                            <p class="brand-offer-campaign">Campaign: <strong>${campaignName}</strong></p>
+                            <p class="brand-offer-date">Sent ${dateSent}</p>
+                        </div>
+                    </div>
+                    <div class="brand-offer-rate">
+                        <p class="rate-label">${isAgreed ? 'Agreed Rate' : 'Budget Range'}</p>
+                        <p class="rate-value" style="color:${isAgreed ? 'var(--teal)' : 'var(--white)'}">${displayRate}</p>
+                    </div>
+                    <div class="brand-offer-right">
+                        <span class="status-badge ${offer.status}">${offer.status}</span>
+                        <div style="margin-top:0.5rem;">
+                            ${(offer.status === 'pending' || offer.status === 'negotiating') ?
+                                `<button class="btn-primary" style="font-size:0.8rem;padding:0.5rem 1rem;" onclick="manageOffer('${offer.id}')">Manage</button>` :
+                                `<button class="btn-secondary" style="font-size:0.8rem;padding:0.5rem 1rem;" onclick="viewDetails('${offer.id}')">Details</button>`}
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function manageOffer(id) { alert(`Opening negotiation module for Offer ID: ${id}.`); }
+        function viewDetails(id) { alert(`Viewing contract/details for Offer ID: ${id}`); }
+        async function logout() { await supabaseClient.auth.signOut(); window.location.href = '/'; }
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+
+    <style>
+        .filter-tabs-bar {
+            display: flex; gap: 0.4rem; margin-bottom: 1.5rem;
+            background: var(--glass); border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg); padding: 0.5rem;
+            backdrop-filter: blur(12px); overflow-x: auto; flex-wrap: nowrap;
+        }
+        .filter-tab {
+            background: transparent; border: none; color: var(--text-muted);
+            font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 600;
+            padding: 0.5rem 1.1rem; border-radius: 50px; cursor: pointer;
+            transition: all 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 0.4rem;
+        }
+        .filter-tab:hover { color: var(--text-secondary); background: var(--white-10); }
+        .filter-tab.active { background: var(--gold); color: var(--midnight); }
+        .tab-count {
+            background: var(--white-10); padding: 1px 7px;
+            border-radius: 50px; font-size: 0.7rem;
+        }
+        .filter-tab.active .tab-count { background: rgba(10,15,30,0.2); }
+
+        .offers-stack { display: flex; flex-direction: column; gap: 0.875rem; }
+
+        .brand-offer-card {
+            display: flex; align-items: center; gap: 1.5rem;
+            background: var(--glass); border: 1px solid var(--glass-border);
+            border-radius: var(--radius); padding: 1.25rem 1.5rem;
+            backdrop-filter: blur(12px); transition: all 0.25s;
+            flex-wrap: wrap;
+        }
+        .brand-offer-card:hover { border-color: rgba(212,168,83,0.3); transform: translateY(-1px); box-shadow: var(--shadow-gold); }
+
+        .brand-offer-left { display: flex; align-items: center; gap: 1rem; flex: 1; min-width: 200px; }
+        .creator-avatar-sm {
+            width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0;
+            background: linear-gradient(135deg, var(--gold), #c49440);
+            color: var(--midnight); display: flex; align-items: center; justify-content: center;
+            font-family: 'Playfair Display', serif; font-weight: 700; font-size: 0.95rem;
+        }
+        .brand-offer-info { display: flex; flex-direction: column; gap: 0.2rem; }
+        .brand-offer-creator { font-weight: 700; color: var(--text-primary); font-size: 0.95rem; }
+        .brand-offer-creator span { font-weight: 400; color: var(--text-muted); font-size: 0.82rem; margin-left: 4px; }
+        .brand-offer-campaign { font-size: 0.82rem; color: var(--text-muted); }
+        .brand-offer-campaign strong { color: var(--text-secondary); }
+        .brand-offer-date { font-size: 0.78rem; color: var(--text-muted); }
+
+        .brand-offer-rate { text-align: center; min-width: 130px; }
+        .rate-label { font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 0.3rem; }
+        .rate-value { font-family: 'Playfair Display', serif; font-size: 1.25rem; font-weight: 700; }
+
+        .brand-offer-right { display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem; min-width: 120px; }
+    </style>
+</body>
+</html>

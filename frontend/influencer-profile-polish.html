@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile Polish - ReachIQ</title>
+    <link rel="stylesheet" href="styles/style.css">
+    <style>
+        .split-view { 
+            display: flex; 
+            gap: 2rem; 
+            margin-top: 2rem; 
+            flex-wrap: wrap; 
+        }
+        .editor-card { 
+            background: var(--glass); 
+            padding: 2.5rem; 
+            border-radius: var(--radius-lg); 
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2); 
+            flex: 1; 
+            min-width: 300px; 
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(12px);
+            position: relative;
+        }
+        .ai-card { 
+            border-color: rgba(212, 168, 83, 0.3); /* Subtle gold border */
+        }
+        .ai-badge-top { 
+            position: absolute; 
+            top: -12px; 
+            right: 24px; 
+            background: var(--gold-dim); 
+            color: var(--gold); 
+            border: 1px solid var(--border);
+            padding: 4px 14px; 
+            border-radius: 50px; 
+            font-size: 0.75rem; 
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+        textarea { 
+            width: 100%; 
+            padding: 1.25rem; 
+            background: rgba(0,0,0,0.2); 
+            border: 1px solid var(--border-subtle); 
+            border-radius: var(--radius); 
+            font-family: 'DM Sans', sans-serif; 
+            font-size: 0.95rem;
+            color: var(--white);
+            resize: vertical; 
+            line-height: 1.6; 
+            transition: all 0.3s;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: var(--gold);
+            background: rgba(0,0,0,0.4);
+        }
+        textarea[readonly] {
+            background: rgba(255,255,255,0.02);
+            color: var(--text-secondary);
+        }
+        .btn-magic { 
+            background: linear-gradient(135deg, var(--gold) 0%, #c49440 100%); 
+            color: var(--midnight); 
+            border: none; 
+            padding: 14px 24px; 
+            border-radius: var(--radius); 
+            font-weight: 700; 
+            cursor: pointer; 
+            width: 100%; 
+            font-size: 1rem; 
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .btn-magic:hover { 
+            opacity: 0.9; 
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-gold);
+        }
+        .btn-magic:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .editor-header-text {
+            font-family: 'Playfair Display', serif;
+            margin-top: 0;
+            margin-bottom: 1.5rem;
+            font-size: 1.4rem;
+        }
+        
+        @media (max-width: 768px) {
+            .split-view { flex-direction: column; }
+            .editor-card { padding: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">✦ ReachIQ</div>
+        <div class="nav-links">
+            <a href="influencer-dashboard.html">Dashboard</a>
+            <a href="influencer-offers.html">Offers</a>
+            <a href="influencer-profile.html">Profile</a>
+            <button onclick="logout()" class="btn-logout">Sign Out</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header class="dashboard-header">
+            <p style="color:var(--gold);font-size:0.8rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.4rem;">AI Tools</p>
+            <h1>AI Profile Polish 🪄</h1>
+            <p style="margin-top:0.4rem;">Let our AI rewrite your bio to make it highly attractive to corporate sponsors.</p>
+        </header>
+
+        <div class="split-view">
+            <div class="editor-card">
+                <h3 class="editor-header-text" style="color: var(--text-primary);">Your Current Bio</h3>
+                <textarea id="currentBio" rows="10" placeholder="Loading your bio..."></textarea>
+                <button class="btn-magic" style="margin-top: 1.5rem;" onclick="polishBio()" id="polishBtn"><span>✨</span> Rewrite with AI</button>
+            </div>
+
+            <div class="editor-card ai-card">
+                <div class="ai-badge-top">Gemini AI</div>
+                <h3 class="editor-header-text" style="color: var(--gold);">Polished Bio</h3>
+                <textarea id="polishedBio" rows="10" placeholder="Click 'Rewrite with AI' to see the magic happen..." readonly></textarea>
+                <button class="btn-primary" style="margin-top: 1.5rem; width: 100%; justify-content: center;" onclick="saveToProfile()" id="saveBtn" disabled>Apply to Profile</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js"></script>
+    <script>
+        const SUPABASE_URL = 'https://rbqphouxghbiynlqanmp.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJicXBob3V4Z2hiaXlubHFhbm1wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2NTAzNzIsImV4cCI6MjA3NjIyNjM3Mn0.VWSTqtXNy-twpJWk1VJqWRLfomKex8maiSf6wVuFlLM';
+        
+        // Changed to supabaseClient to match other files and prevent bugs
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        let userNiche = '';
+
+        async function init() {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            if (!user) return window.location.href = '/';
+
+            // Load current bio
+            const { data } = await supabaseClient.from('influencer_profiles').select('bio, niche').eq('profile_id', user.id).single();
+            if (data) {
+                document.getElementById('currentBio').value = data.bio || '';
+                userNiche = data.niche || 'general';
+            }
+        }
+
+        async function polishBio() {
+            const bio = document.getElementById('currentBio').value;
+            const btn = document.getElementById('polishBtn');
+            if (!bio) return alert("Please enter a bio to rewrite.");
+
+            btn.innerHTML = '<span class="loading-spinner" style="width:16px;height:16px;border-width:2px;margin:0;display:inline-block;vertical-align:middle;"></span> Thinking...';
+            btn.disabled = true;
+
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                const response = await fetch('/api/influencer/polish-profile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+                    body: JSON.stringify({ bio: bio, niche: userNiche })
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    document.getElementById('polishedBio').value = result.data.polished_bio;
+                    document.getElementById('saveBtn').disabled = false;
+                } else {
+                    alert(result.error);
+                }
+            } catch (error) {
+                alert("Failed to connect to the AI server.");
+            } finally {
+                btn.innerHTML = '<span>✨</span> Rewrite with AI';
+                btn.disabled = false;
+            }
+        }
+
+        async function saveToProfile() {
+            const newBio = document.getElementById('polishedBio').value;
+            const btn = document.getElementById('saveBtn');
+            btn.textContent = "Saving...";
+            btn.disabled = true;
+
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            await supabaseClient.from('influencer_profiles').update({ bio: newBio }).eq('profile_id', user.id);
+            
+            btn.innerHTML = "✅ Applied! Redirecting...";
+            btn.style.background = "linear-gradient(135deg, var(--teal), #2ec9ad)";
+            
+            setTimeout(() => { window.location.href = 'influencer-profile.html'; }, 1000);
+        }
+
+        async function logout() { await supabaseClient.auth.signOut(); window.location.href = '/'; }
+        
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

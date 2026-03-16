@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brand Opportunities — ReachIQ</title>
+    <link rel="stylesheet" href="styles/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">✦ ReachIQ</div>
+        <div class="nav-links">
+            <a href="influencer-dashboard.html">Dashboard</a>
+            <a href="influencer-offers.html" class="active">Offers</a>
+            <a href="influencer-profile.html">Profile</a>
+            <button onclick="logout()" class="btn-logout">Sign Out</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header class="dashboard-header">
+            <p style="color:var(--gold);font-size:0.8rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.4rem;">Incoming</p>
+            <h1>Brand Opportunities</h1>
+            <p style="margin-top:0.4rem;">Review and negotiate incoming collaboration requests from brands.</p>
+        </header>
+
+        <div id="offersContainer" class="offers-stack">
+            <div style="text-align:center;padding:4rem;">
+                <div class="loading-spinner"></div>
+                <p style="margin-top:1rem;">Loading your brand offers...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js"></script>
+    <script>
+        const SUPABASE_URL = 'https://rbqphouxghbiynlqanmp.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJicXBob3V4Z2hiaXlubHFhbm1wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2NTAzNzIsImV4cCI6MjA3NjIyNjM3Mn0.VWSTqtXNy-twpJWk1VJqWRLfomKex8maiSf6wVuFlLM';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        async function init() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) return window.location.href = '/';
+            try {
+                const { data, error } = await supabaseClient
+                    .from('offers')
+                    .select(`*, campaigns ( name, brief_text, target_audience, brand_id, budget_range )`)
+                    .eq('influencer_id', session.user.id)
+                    .order('id', { ascending: false });
+                if (error) throw error;
+                let offersData = data || [];
+                for (let offer of offersData) {
+                    if (offer.campaigns && offer.campaigns.brand_id) {
+                        const { data: bData } = await supabaseClient.from('profiles').select('full_name').eq('id', offer.campaigns.brand_id).single();
+                        offer.brand_name = bData ? bData.full_name : 'Verified Brand';
+                    }
+                }
+                renderOffers(offersData);
+            } catch (err) {
+                console.error("Fetch Error:", err);
+                document.getElementById('offersContainer').innerHTML = `<div style="text-align:center;padding:3rem;color:var(--danger);">Failed to load your offers.</div>`;
+            }
+        }
+
+        function renderOffers(offers) {
+            const container = document.getElementById('offersContainer');
+            if (offers.length === 0) {
+                container.innerHTML = `
+                    <div style="background:var(--glass);border:1px dashed var(--border);border-radius:var(--radius-lg);padding:4rem;text-align:center;backdrop-filter:blur(12px);">
+                        <div style="font-size:3rem;margin-bottom:1rem">📭</div>
+                        <h3 style="margin-bottom:0.5rem;">No offers yet</h3>
+                        <p style="margin-bottom:1.5rem;">Keep creating great content. Make sure your profile is fully optimized so brands can find you.</p>
+                        <a href="influencer-profile.html" class="btn-primary">Update My Profile</a>
+                    </div>`;
+                return;
+            }
+            container.innerHTML = offers.map(o => {
+                const dateDisplay = o.created_at ? new Date(o.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) : 'Recently';
+                const currentRate = o.negotiated_amount ? `$${o.negotiated_amount}` : (o.campaigns?.budget_range || 'Negotiable');
+                const statusColors = { pending: 'var(--warning)', accepted: 'var(--teal)', rejected: 'var(--danger)', negotiating: '#a78bfa' };
+                const accentColor = statusColors[o.status] || 'var(--text-muted)';
+                return `
+                <div class="offer-card-full" data-status="${o.status}">
+                    <div class="offer-card-accent" style="background:${accentColor}"></div>
+                    <div class="offer-card-inner">
+                        <div class="offer-card-top">
+                            <div>
+                                <p class="offer-brand-name">${o.brand_name || 'Brand Partner'}</p>
+                                <p class="offer-campaign-ref">Campaign: <span>${o.campaigns?.name || 'Collaboration'}</span></p>
+                            </div>
+                            <span class="status-badge ${o.status}">${o.status}</span>
+                        </div>
+
+                        <div class="offer-brief-box">
+                            <p class="offer-brief-label">Campaign Brief</p>
+                            <p class="offer-brief-text">${o.campaigns?.brief_text || 'The brand will share full details during negotiation.'}</p>
+                        </div>
+
+                        <div class="offer-terms-row">
+                            <div class="offer-term">
+                                <span class="offer-term-label">Offered Budget</span>
+                                <span class="offer-term-value" style="color:var(--teal)">${currentRate}</span>
+                            </div>
+                            <div class="offer-term">
+                                <span class="offer-term-label">Target Audience</span>
+                                <span class="offer-term-value">${o.campaigns?.target_audience || 'General'}</span>
+                            </div>
+                            <div class="offer-term">
+                                <span class="offer-term-label">Received</span>
+                                <span class="offer-term-value">${dateDisplay}</span>
+                            </div>
+                        </div>
+
+                        <div class="offer-action-row">
+                            ${(o.status === 'pending' || o.status === 'negotiating') ? `
+                                <button class="btn-success" onclick="updateOfferStatus('${o.id}', 'accepted')">✓ Accept</button>
+                                <button class="btn-secondary" onclick="counterOffer('${o.id}')">Counter Offer</button>
+                                <button class="btn-ai-draft" id="aiBtn-${o.id}" onclick="aiReply('${o.id}')">✦ Draft with AI</button>
+                                <button class="btn-danger" style="margin-left:auto;" onclick="declineOffer('${o.id}')">Decline</button>
+                            ` : `
+                                <button class="btn-secondary" onclick="viewDetails('${o.id}')">View Contract Details</button>
+                            `}
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        async function updateOfferStatus(id, newStatus) {
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                const response = await fetch('/api/offers/update-status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+                    body: JSON.stringify({ offer_id: id, status: newStatus })
+                });
+                const result = await response.json();
+                if (result.status === 'success') { alert(`Offer marked as ${newStatus}!`); init(); }
+                else alert("Error: " + result.error);
+            } catch (err) { alert("Failed to connect to server."); }
+        }
+
+        async function aiReply(id) {
+            const btn = document.getElementById(`aiBtn-${id}`);
+            const orig = btn.innerHTML;
+            btn.innerHTML = "⏳ Drafting...";
+            btn.disabled = true;
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                const response = await fetch('/api/influencer/generate-smart-reply', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+                    body: JSON.stringify({ offer_id: id })
+                });
+                const result = await response.json();
+                if (result.status === 'success') {
+                    alert(`🤖 AI DRAFTED REPLIES:\n\n[1] TO ACCEPT:\n${result.replies.accept}\n\n[2] TO COUNTER:\n${result.replies.counter}\n\n[3] TO DECLINE:\n${result.replies.decline}`);
+                } else alert("Error: " + result.error);
+            } catch (err) { alert("Failed to connect to AI server."); }
+            finally { btn.innerHTML = orig; btn.disabled = false; }
+        }
+
+        function declineOffer(id) { if (confirm("Are you sure you want to decline this offer?")) updateOfferStatus(id, 'rejected'); }
+        function counterOffer(id) { alert("Opening Negotiation Chat Module..."); }
+        function viewDetails(id) { alert("Loading contract terms..."); }
+        async function logout() { await supabaseClient.auth.signOut(); window.location.href = '/'; }
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+
+    <style>
+        .offers-stack { display: flex; flex-direction: column; gap: 1.25rem; }
+
+        .offer-card-full {
+            display: flex; border-radius: var(--radius-lg);
+            overflow: hidden; background: var(--glass);
+            border: 1px solid var(--glass-border); backdrop-filter: blur(12px);
+            transition: all 0.3s;
+        }
+        .offer-card-full:hover { border-color: rgba(212,168,83,0.25); transform: translateY(-2px); box-shadow: var(--shadow); }
+
+        .offer-card-accent { width: 4px; flex-shrink: 0; }
+        .offer-card-inner { flex: 1; padding: 1.75rem; display: flex; flex-direction: column; gap: 1.25rem; }
+
+        .offer-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+        .offer-brand-name { font-family: 'Playfair Display', serif; font-size: 1.25rem; font-weight: 700; color: var(--white); margin-bottom: 0.25rem; }
+        .offer-campaign-ref { font-size: 0.85rem; color: var(--text-muted); }
+        .offer-campaign-ref span { color: var(--gold); font-weight: 600; }
+
+        .offer-brief-box {
+            background: var(--white-10); border: 1px solid var(--border-subtle);
+            border-radius: var(--radius); padding: 1.1rem;
+        }
+        .offer-brief-label { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 0.5rem; }
+        .offer-brief-text { font-size: 0.875rem; color: var(--text-secondary); line-height: 1.6; }
+
+        .offer-terms-row { display: flex; gap: 2.5rem; flex-wrap: wrap; padding-top: 1rem; border-top: 1px solid var(--border-subtle); }
+        .offer-term { display: flex; flex-direction: column; gap: 0.25rem; }
+        .offer-term-label { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em; }
+        .offer-term-value { font-size: 0.95rem; font-weight: 600; color: var(--text-primary); }
+
+        .offer-action-row { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+
+        .btn-ai-draft {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            background: var(--gold-dim); color: var(--gold);
+            border: 1px solid var(--border); padding: 0.6rem 1.2rem;
+            border-radius: 50px; font-family: 'DM Sans', sans-serif;
+            font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+        }
+        .btn-ai-draft:hover { background: rgba(212,168,83,0.25); }
+        .btn-ai-draft:disabled { opacity: 0.5; cursor: not-allowed; }
+    </style>
+</body>
+</html>

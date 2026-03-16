@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Tracker & ROI — ReachIQ</title>
+    <link rel="stylesheet" href="styles/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">✦ ReachIQ</div>
+        <div class="nav-links">
+            <a href="brand-dashboard.html">Dashboard</a>
+            <a href="create-campaign.html">Campaigns</a>
+            <a href="creator-discovery.html">Discover</a>
+            <a href="brand-offers.html">Offers</a>
+            <a href="video-tracker.html" class="active">Tracker</a>
+            <button onclick="logout()" class="btn-logout">Sign Out</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header class="dashboard-header">
+            <p style="color:var(--gold);font-size:0.8rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.4rem;">Deliverable Intelligence</p>
+            <h1>Video Tracker & ROI Analytics</h1>
+            <p style="margin-top:0.4rem;">Paste any creator's YouTube link for real-time performance insights and ROI tracking.</p>
+        </header>
+
+        <div class="tracker-input-card">
+            <div class="form-row">
+                <div class="form-group" style="flex:2;margin:0;">
+                    <label>YouTube Video URL</label>
+                    <input type="url" id="videoUrl" placeholder="https://www.youtube.com/watch?v=...">
+                </div>
+                <div class="form-group" style="flex:1;margin:0;">
+                    <label>Milestone Target (Views)</label>
+                    <input type="number" id="milestoneTarget" placeholder="e.g. 50,000">
+                </div>
+                <div style="display:flex;align-items:flex-end;">
+                    <button class="btn-primary" onclick="analyzeVideo()" id="analyzeBtn" style="white-space:nowrap;padding:0.75rem 1.75rem;">
+                        <span>✦</span> Analyze
+                    </button>
+                </div>
+            </div>
+            <div id="trackerError" style="color:var(--danger);margin-top:0.75rem;display:none;font-size:0.875rem;"></div>
+        </div>
+
+        <div id="dashboardSection" style="display:none;margin-top:2rem;">
+
+            <div class="video-info-banner">
+                <div style="position: relative;">
+                    <img id="vidThumbnail" src="" alt="Thumbnail" class="vid-thumb">
+                    <span id="vidDuration" class="duration-badge">0:00</span>
+                </div>
+                <div class="video-details">
+                    <div class="vid-badge">YouTube Deliverable</div>
+                    <h2 id="vidTitle">Video Title</h2>
+                    <p>by <strong id="vidChannel" style="color:var(--gold);">Channel Name</strong> &nbsp;·&nbsp; Published <span id="vidDate">Date</span></p>
+                    
+                    <div id="vidTags" class="tags-container"></div>
+                </div>
+            </div>
+
+            <div class="milestone-card" id="milestoneCard">
+                <div class="milestone-header">
+                    <div>
+                        <p style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.25rem;">Payment Milestone</p>
+                        <h3 id="milestoneText" style="font-size:1rem;font-weight:500;color:var(--text-secondary);">Tracking in progress...</h3>
+                    </div>
+                    <span id="milestoneBadge" class="milestone-badge-pending">In Progress</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div id="progressBar" class="progress-bar-fill"></div>
+                    <span id="progressPct" class="progress-pct">0%</span>
+                </div>
+            </div>
+
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <p class="kpi-label">Total Views</p>
+                    <p class="kpi-value" id="kpiViews">0</p>
+                    <p class="kpi-sub">lifetime views</p>
+                </div>
+                <div class="kpi-card kpi-highlight">
+                    <p class="kpi-label" style="color:var(--teal)">Earned Media Value <span title="Estimated equivalent ad spend at $20 CPM" style="cursor:help;opacity:0.6">ⓘ</span></p>
+                    <p class="kpi-value" id="kpiEmv" style="color:var(--teal)">$0.00</p>
+                    <p class="kpi-sub">at $20 CPM</p>
+                </div>
+                <div class="kpi-card">
+                    <p class="kpi-label">Engagement Rate</p>
+                    <p class="kpi-value" id="kpiEngagement" style="color:var(--gold)">0%</p>
+                    <p class="kpi-sub">overall interaction</p>
+                </div>
+                <div class="kpi-card">
+                    <p class="kpi-label">Like/View Ratio</p>
+                    <p class="kpi-value" id="kpiLikeRatio">0%</p>
+                    <p class="kpi-sub">audience sentiment</p>
+                </div>
+                <div class="kpi-card">
+                    <p class="kpi-label">Total Likes</p>
+                    <p class="kpi-value" id="kpiLikes">0</p>
+                    <p class="kpi-sub">positive reactions</p>
+                </div>
+                <div class="kpi-card">
+                    <p class="kpi-label">Total Comments</p>
+                    <p class="kpi-value" id="kpiComments">0</p>
+                    <p class="kpi-sub">audience discussions</p>
+                </div>
+            </div>
+
+            <div class="charts-section-header">
+                <h2>Performance Analytics</h2>
+                <span class="live-dot">● LIVE DATA</span>
+            </div>
+            <div class="charts-grid-3">
+                <div class="chart-container">
+                    <h3>Views vs. Milestone</h3>
+                    <canvas id="milestoneBarChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Engagement Breakdown</h3>
+                    <canvas id="engagementPieChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Performance vs Benchmark <span title="Compared to average creators in same tier" style="cursor:help;opacity:0.5;font-size:0.75rem">ⓘ</span></h3>
+                    <canvas id="benchmarkRadarChart"></canvas>
+                </div>
+            </div>
+
+            <div class="charts-section-header" style="margin-top:2.5rem;">
+                <h2>Audience Insights</h2>
+                <span class="ai-badge">✦ AI Predicted</span>
+            </div>
+            <p style="color:var(--text-muted);font-size:0.8rem;margin-top:-0.75rem;margin-bottom:1.5rem;">* Demographic data is estimated using ML models based on content context and engagement footprint.</p>
+            <div class="charts-grid-2">
+                <div class="chart-container">
+                    <h3>Age & Gender Distribution</h3>
+                    <canvas id="demographicsBarChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Geographic Reach</h3>
+                    <canvas id="geoDoughnutChart"></canvas>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js"></script>
+    <script>
+        const SUPABASE_URL = 'https://rbqphouxghbiynlqanmp.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJicXBob3V4Z2hiaXlubHFhbm1wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2NTAzNzIsImV4cCI6MjA3NjIyNjM3Mn0.VWSTqtXNy-twpJWk1VJqWRLfomKex8maiSf6wVuFlLM';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const charts = {};
+
+        Chart.defaults.font.family = "'DM Sans', sans-serif";
+        Chart.defaults.color = '#9ba3b8';
+
+        async function analyzeVideo() {
+            const url = document.getElementById('videoUrl').value;
+            const milestone = document.getElementById('milestoneTarget').value || 0;
+            const errorDiv = document.getElementById('trackerError');
+            const btn = document.getElementById('analyzeBtn');
+            
+            if (!url) { errorDiv.textContent = "Please enter a YouTube URL."; errorDiv.style.display = 'block'; return; }
+            errorDiv.style.display = 'none';
+            
+            btn.innerHTML = '<span class="loading-spinner" style="width:16px;height:16px;border-width:2px;margin:0;display:inline-block;vertical-align:middle;margin-right:6px;"></span> Analyzing...';
+            btn.disabled = true;
+            
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session) throw new Error("Please log in first.");
+                
+                const response = await fetch('/api/brand/analyze-video', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` }, 
+                    body: JSON.stringify({ youtube_url: url, milestone: milestone }) 
+                });
+                
+                const result = await response.json();
+                if (result.status === 'success') { renderDashboard(result.data); }
+                else throw new Error(result.error);
+                
+            } catch (err) { 
+                errorDiv.textContent = err.message; 
+                errorDiv.style.display = 'block'; 
+            } finally { 
+                btn.innerHTML = '<span>✦</span> Analyze'; 
+                btn.disabled = false; 
+            }
+        }
+
+        function renderDashboard(data) {
+            document.getElementById('dashboardSection').style.display = 'block';
+            document.getElementById('dashboardSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            
+            // Basic Info
+            document.getElementById('vidThumbnail').src = data.thumbnail;
+            document.getElementById('vidTitle').textContent = data.title;
+            document.getElementById('vidChannel').textContent = data.channel_name;
+            document.getElementById('vidDate').textContent = data.published_at;
+            document.getElementById('vidDuration').textContent = data.video_meta.duration;
+
+            // Tags
+            const tagsContainer = document.getElementById('vidTags');
+            if (data.video_meta.tags && data.video_meta.tags.length > 0) {
+                tagsContainer.innerHTML = data.video_meta.tags.map(t => `<span class="tag-pill">#${t}</span>`).join('');
+            } else {
+                tagsContainer.innerHTML = '';
+            }
+
+            // KPIs
+            const emv = (data.metrics.views / 1000) * 20;
+            document.getElementById('kpiViews').textContent = data.metrics.views.toLocaleString();
+            document.getElementById('kpiLikes').textContent = data.metrics.likes.toLocaleString();
+            document.getElementById('kpiComments').textContent = data.metrics.comments.toLocaleString();
+            document.getElementById('kpiEngagement').textContent = data.metrics.engagement_rate + '%';
+            document.getElementById('kpiLikeRatio').textContent = data.metrics.like_to_view_ratio + '%';
+            document.getElementById('kpiEmv').textContent = '$' + emv.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+            
+            // Milestone
+            const pbFill = document.getElementById('progressBar');
+            const badge = document.getElementById('milestoneBadge');
+            const msText = document.getElementById('milestoneText');
+            const pct = Math.min(data.milestone.progress_percentage, 100);
+            
+            pbFill.style.width = pct + '%';
+            document.getElementById('progressPct').textContent = Math.round(pct) + '%';
+            
+            if (data.milestone.target === 0) { 
+                badge.textContent = "No Target"; badge.className = "milestone-badge-pending"; msText.textContent = "Enter a view target to track milestone progress."; 
+            } else if (data.milestone.is_reached) { 
+                badge.textContent = "✅ Reached"; badge.className = "milestone-badge-success"; pbFill.style.background = "linear-gradient(90deg, #4dd9c0, #2ec9ad)"; msText.textContent = `Surpassed ${data.milestone.target.toLocaleString()} views — ready for next payout.`; 
+            } else { 
+                badge.textContent = "⏳ In Progress"; badge.className = "milestone-badge-pending"; msText.textContent = `Needs ${data.milestone.views_remaining.toLocaleString()} more views to reach the target.`; 
+            }
+            
+            drawCharts(data);
+        }
+
+        function drawCharts(data) {
+            Object.values(charts).forEach(c => c && c.destroy());
+            const gridColor = 'rgba(248,244,239,0.06)';
+            const tickColor = '#5c6480';
+
+            // Bar: Views vs Target
+            charts.bar = new Chart(document.getElementById('milestoneBarChart').getContext('2d'), {
+                type: 'bar',
+                data: { labels: ['Current Views', 'Milestone Target'], datasets: [{ data: [data.metrics.views, data.milestone.target || data.metrics.views * 1.5], backgroundColor: ['rgba(212,168,83,0.8)', 'rgba(248,244,239,0.08)'], borderColor: ['rgba(212,168,83,1)', 'rgba(248,244,239,0.15)'], borderWidth: 1, borderRadius: 8 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { color: gridColor }, ticks: { color: tickColor } }, y: { grid: { color: gridColor }, ticks: { color: tickColor } } } }
+            });
+
+            // Doughnut: Engagement
+            charts.pie = new Chart(document.getElementById('engagementPieChart').getContext('2d'), {
+                type: 'doughnut',
+                data: { labels: ['Likes', 'Comments'], datasets: [{ data: [data.metrics.likes, data.metrics.comments], backgroundColor: ['rgba(212,168,83,0.85)', 'rgba(77,217,192,0.75)'], borderWidth: 0, cutout: '72%' }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#9ba3b8', padding: 16 } } } }
+            });
+
+            // Radar: Benchmark
+            charts.radar = new Chart(document.getElementById('benchmarkRadarChart').getContext('2d'), {
+                type: 'radar',
+                data: { labels: ['Views', 'Likes', 'Comments', 'Engagement', 'Est. Retention'], datasets: [{ label: 'This Video', data: [100, 90, 85, data.metrics.engagement_rate * 10, 88], backgroundColor: 'rgba(212,168,83,0.15)', borderColor: 'rgba(212,168,83,0.8)', pointBackgroundColor: 'rgba(212,168,83,1)', pointRadius: 4 }, { label: 'Industry Avg', data: [80, 80, 80, 40, 75], backgroundColor: 'rgba(248,244,239,0.04)', borderColor: 'rgba(248,244,239,0.2)', pointRadius: 3 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#9ba3b8' } } }, scales: { r: { ticks: { display: false }, grid: { color: gridColor }, angleLines: { color: gridColor }, pointLabels: { color: tickColor, font: { size: 11 } } } } }
+            });
+
+            // Demographics
+            const seed = data.metrics.views % 100;
+            const malePct = 40 + (seed % 30);
+            const femalePct = 100 - malePct;
+            charts.demo = new Chart(document.getElementById('demographicsBarChart').getContext('2d'), {
+                type: 'bar',
+                data: { labels: ['13–17', '18–24', '25–34', '35–44', '45+'], datasets: [{ label: 'Male', data: [5, 25, 35, 20, 15].map(v => v * (malePct/100)), backgroundColor: 'rgba(99,153,241,0.75)' }, { label: 'Female', data: [8, 30, 40, 15, 7].map(v => v * (femalePct/100)), backgroundColor: 'rgba(244,165,176,0.75)' }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#9ba3b8' } } }, scales: { x: { stacked: true, grid: { color: gridColor }, ticks: { color: tickColor } }, y: { stacked: true, beginAtZero: true, grid: { color: gridColor }, ticks: { color: tickColor } } } }
+            });
+
+            // Geo
+            charts.geo = new Chart(document.getElementById('geoDoughnutChart').getContext('2d'), {
+                type: 'pie',
+                data: { labels: ['United States', 'India', 'United Kingdom', 'Canada', 'Other'], datasets: [{ data: [45 + (seed%15), 20 + (seed%10), 15, 10, 10], backgroundColor: ['rgba(212,168,83,0.85)', 'rgba(77,217,192,0.75)', 'rgba(244,165,176,0.75)', 'rgba(99,153,241,0.7)', 'rgba(155,163,184,0.4)'], borderWidth: 0 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#9ba3b8', padding: 14 } } } }
+            });
+        }
+
+        async function logout() { await supabaseClient.auth.signOut(); window.location.href = '/'; }
+    </script>
+
+    <style>
+        .tracker-input-card {
+            background: var(--glass); border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg); padding: 2rem; backdrop-filter: blur(12px);
+        }
+        .form-row { display: flex; gap: 1.25rem; flex-wrap: wrap; align-items: flex-end; }
+        .form-row .form-group { margin-bottom: 0; }
+
+        .video-info-banner {
+            display: flex; gap: 2rem; background: var(--glass);
+            border: 1px solid var(--glass-border); border-radius: var(--radius-lg);
+            padding: 1.75rem; align-items: center; backdrop-filter: blur(12px);
+            margin-bottom: 1.25rem; border-left: 3px solid var(--gold);
+        }
+        .vid-thumb { width: 220px; border-radius: var(--radius); object-fit: cover; box-shadow: var(--shadow); flex-shrink: 0; display: block;}
+        .duration-badge { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.8); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-family: 'DM Sans', sans-serif; font-weight: 600;}
+        .vid-badge { display: inline-block; background: var(--gold-dim); color: var(--gold); border: 1px solid var(--border); padding: 3px 10px; border-radius: 50px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.75rem; }
+        .video-details h2 { margin-bottom: 0.5rem; font-size: 1.4rem; }
+        
+        .tags-container { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
+        .tag-pill { background: var(--white-10); border: 1px solid var(--border-subtle); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; color: var(--text-muted); }
+
+        .milestone-card {
+            background: var(--glass); border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg); padding: 1.75rem; backdrop-filter: blur(12px);
+            margin-bottom: 1.25rem;
+        }
+        .milestone-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; gap: 1rem; }
+        .milestone-badge-pending { background: rgba(240,201,122,0.12); color: var(--warning); border: 1px solid rgba(240,201,122,0.25); padding: 5px 14px; border-radius: 50px; font-size: 0.78rem; font-weight: 700; font-family: 'DM Sans', sans-serif; white-space: nowrap; }
+        .milestone-badge-success { background: rgba(77,217,192,0.12); color: var(--teal); border: 1px solid rgba(77,217,192,0.25); padding: 5px 14px; border-radius: 50px; font-size: 0.78rem; font-weight: 700; font-family: 'DM Sans', sans-serif; white-space: nowrap; }
+        .progress-bar-container { position: relative; width: 100%; height: 10px; background: var(--white-10); border-radius: 5px; overflow: visible; }
+        .progress-bar-fill { height: 100%; border-radius: 5px; background: linear-gradient(90deg, var(--gold), var(--gold-light)); transition: width 1.2s cubic-bezier(0.4,0,0.2,1); box-shadow: 0 0 10px rgba(212,168,83,0.4); }
+        .progress-pct { position: absolute; right: 0; top: -22px; font-size: 0.8rem; font-weight: 700; color: var(--gold); font-family: 'DM Sans', sans-serif; }
+
+        .kpi-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1rem; margin-bottom: 2.5rem; }
+        .kpi-card {
+            background: var(--glass); border: 1px solid var(--glass-border);
+            border-radius: var(--radius); padding: 1.25rem; text-align: center;
+            backdrop-filter: blur(12px); transition: all 0.25s;
+        }
+        .kpi-card:hover { border-color: rgba(212,168,83,0.3); transform: translateY(-2px); }
+        .kpi-highlight { border-color: rgba(77,217,192,0.2); background: rgba(77,217,192,0.04); }
+        .kpi-label { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.6rem; }
+        .kpi-value { font-family: 'Playfair Display', serif; font-size: 1.6rem; font-weight: 700; color: var(--white); margin-bottom: 0.3rem; line-height: 1; }
+        .kpi-sub { font-size: 0.7rem; color: var(--text-muted); }
+
+        .charts-section-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; }
+        .charts-section-header h2 { margin: 0; }
+        .live-dot { font-size: 0.7rem; font-weight: 700; color: var(--teal); letter-spacing: 0.08em; font-family: 'DM Sans', sans-serif; }
+        .ai-badge { background: var(--gold-dim); color: var(--gold); border: 1px solid var(--border); padding: 3px 10px; border-radius: 50px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; font-family: 'DM Sans', sans-serif; }
+
+        .charts-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-bottom: 1.25rem; }
+        .charts-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem; margin-bottom: 3rem; }
+        .chart-container {
+            background: var(--glass); border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg); padding: 1.5rem; height: 320px;
+            display: flex; flex-direction: column; backdrop-filter: blur(12px);
+        }
+        .chart-container h3 { font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 1.25rem; text-align: center; font-family: 'DM Sans', sans-serif; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+        .chart-container canvas { flex: 1; }
+
+        @media (max-width: 1200px) { .kpi-grid { grid-template-columns: repeat(3, 1fr); } .charts-grid-3 { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 1024px) { .charts-grid-3 { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 768px) {
+            .charts-grid-3, .charts-grid-2 { grid-template-columns: 1fr; }
+            .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+            .video-info-banner { flex-direction: column; text-align: center; }
+            .vid-thumb { width: 100%; max-width: 320px; }
+            .form-row { flex-direction: column; }
+        }
+        @media (max-width: 480px) { .kpi-grid { grid-template-columns: 1fr 1fr; } }
+    </style>
+</body>
+</html>

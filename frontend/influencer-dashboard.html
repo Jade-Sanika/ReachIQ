@@ -8,66 +8,70 @@
 </head>
 <body>
     <nav class="navbar">
-        <div class="nav-brand">🎯 ReachIQ</div>
+        <div class="nav-brand">✦ ReachIQ</div>
         <div class="nav-links">
             <a href="influencer-dashboard.html" class="active">Dashboard</a>
             <a href="influencer-offers.html">Offers</a>
             <a href="influencer-profile.html">Profile</a>
-            <button onclick="logout()" class="btn-logout">Logout</button>
+            <button onclick="logout()" class="btn-logout">Sign Out</button>
         </div>
     </nav>
 
     <div class="container">
-        <header class="dashboard-header">
-            <h1>Welcome, Creator! 🎬</h1>
-            <p>Manage your brand collaborations and grow your influence</p>
+        <header class="dashboard-header" style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:1rem;">
+            <div>
+                <p style="color:var(--gold); font-size:0.8rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; margin-bottom:0.4rem;">Creator Studio</p>
+                <h1>Welcome back, Creator ✦</h1>
+                <p style="margin-top:0.4rem;">Manage your collaborations and grow your brand presence</p>
+            </div>
+            <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+                <a href="influencer-rate-calculator.html" class="btn-primary"><span class="btn-icon">💰</span> AI Rate Calculator</a>
+                <a href="influencer-profile-polish.html" class="btn-secondary"><span class="btn-icon">✦</span> Polish Profile</a>
+            </div>
         </header>
 
-        <!-- Stats Overview -->
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-icon">📩</div>
+                <div class="stat-icon-wrap" style="background:rgba(240,201,122,0.12); border:1px solid rgba(240,201,122,0.2);">📩</div>
                 <div class="stat-content">
-                    <h3>New Offers</h3>
+                    <p class="stat-label">New Offers</p>
                     <p class="stat-number" id="newOffers">0</p>
                 </div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon">💼</div>
+                <div class="stat-icon-wrap" style="background:rgba(77,217,192,0.1); border:1px solid rgba(77,217,192,0.2);">💼</div>
                 <div class="stat-content">
-                    <h3>Active Deals</h3>
+                    <p class="stat-label">Active Deals</p>
                     <p class="stat-number" id="activeDeals">0</p>
                 </div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon">💰</div>
+                <div class="stat-icon-wrap" style="background:rgba(212,168,83,0.12); border:1px solid rgba(212,168,83,0.2);">💸</div>
                 <div class="stat-content">
-                    <h3>Total Earnings</h3>
+                    <p class="stat-label">Total Earnings</p>
                     <p class="stat-number" id="totalEarnings">$0</p>
                 </div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon">📈</div>
+                <div class="stat-icon-wrap" style="background:rgba(244,165,176,0.1); border:1px solid rgba(244,165,176,0.2);">📈</div>
                 <div class="stat-content">
-                    <h3>Response Rate</h3>
+                    <p class="stat-label">Response Rate</p>
                     <p class="stat-number" id="responseRate">0%</p>
                 </div>
             </div>
         </div>
 
-        <!-- Profile Completion Warning -->
-        <div class="warning-banner" id="profileWarning" style="display: none;">
+        <div class="warning-banner" id="profileWarning" style="display:none;">
             <div class="warning-content">
-                <div class="warning-icon">⚠️</div>
+                <div class="warning-emoji">⚡</div>
                 <div class="warning-text">
-                    <h3>Complete Your Profile to Get More Offers!</h3>
-                    <p>Brands are 5x more likely to contact creators with complete profiles. Fill out your profile to appear in campaign matches.</p>
+                    <h3>Your profile needs attention</h3>
+                    <p>Brands are 5× more likely to reach out to creators with complete profiles. Fill yours out to start appearing in campaign matches.</p>
                 </div>
-                <a href="influencer-profile.html" class="btn-warning">Complete Profile Now</a>
+                <a href="influencer-profile.html" class="btn-warning">Complete Profile →</a>
             </div>
         </div>
 
-        <!-- Recent Offers -->
         <div class="recent-section">
             <div class="section-header">
                 <h2>Recent Offers</h2>
@@ -81,10 +85,9 @@
             </div>
         </div>
 
-        <!-- Profile Completion -->
-        <div class="recent-section" id="profileCompletionSection" style="display: none;">
+        <div class="recent-section" id="profileCompletionSection" style="display:none;">
             <div class="section-header">
-                <h2>Profile Completion</h2>
+                <h2>Profile Strength</h2>
                 <span class="completion-score" id="completionScore">0%</span>
             </div>
             <div class="completion-bar">
@@ -93,817 +96,398 @@
             <div class="completion-message" id="completionMessage">
                 <p>Complete your profile to get more brand offers</p>
             </div>
-            <a href="influencer-profile.html" class="btn-primary" style="margin-top: 1rem;">Complete Profile</a>
+            <a href="influencer-profile.html" class="btn-primary" style="margin-top:1.25rem;">Complete Profile</a>
         </div>
 
-        <!-- Quick Tips -->
-        <div class="tips-section">
-            <h3>💡 Tips to Get More Offers</h3>
+        <div class="recent-section">
+            <h3 style="margin-bottom:1.5rem; color:var(--gold);">✦ Tips to Attract More Brands</h3>
             <div class="tips-grid">
                 <div class="tip-card">
                     <div class="tip-icon">📝</div>
                     <h4>Complete Your Profile</h4>
-                    <p>Fill all profile sections including bio, niche, and rates to appear in more searches</p>
+                    <p>Fill all sections including bio, niche, and rates to appear in more brand searches</p>
                 </div>
                 <div class="tip-card">
                     <div class="tip-icon">⚡</div>
-                    <h4>Respond Quickly</h4>
-                    <p>Brands prefer creators who respond within 24 hours to offers</p>
+                    <h4>Reply Fast</h4>
+                    <p>Brands prefer creators who respond within 24 hours to their offers</p>
                 </div>
                 <div class="tip-card">
                     <div class="tip-icon">🎯</div>
-                    <h4>Be Specific</h4>
-                    <p>Clearly define your niche and content style for better matches</p>
+                    <h4>Define Your Niche</h4>
+                    <p>Clearly state your content style and audience for better campaign matches</p>
                 </div>
                 <div class="tip-card">
                     <div class="tip-icon">💼</div>
                     <h4>Set Clear Rates</h4>
-                    <p>Define your rate range to attract serious brand partnerships</p>
+                    <p>Define your rate range to attract only serious partnership enquiries</p>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="offerModal" class="modal-overlay">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal()">&times;</span>
+            <h2 id="modalCampaignName" style="margin-bottom: 0.2rem; color: var(--white);">Campaign Name</h2>
+            <p class="modal-brand">by <strong id="modalBrandName" style="color: var(--gold);">Brand</strong></p>
+            <div class="status-badge" id="modalStatus" style="display: inline-block; margin-bottom: 1rem;">Pending</div>
+
+            <div class="modal-section">
+                <h3>Campaign Brief</h3>
+                <p id="modalBrief">Brief text goes here...</p>
+            </div>
+
+            <div class="modal-section">
+                <h3>Deal Details</h3>
+                <ul class="modal-list">
+                    <li><strong>Brand Budget:</strong> <span id="modalBudget">Negotiable</span></li>
+                    <li><strong>Target Audience:</strong> <span id="modalAudience">General</span></li>
+                    <li><strong>Date Sent:</strong> <span id="modalDate">--</span></li>
+                    <li id="modalBrandNotesContainer"><strong>Brand Message:</strong> <span id="modalBrandNotes">--</span></li>
+                </ul>
+            </div>
+            
+            <div style="margin-top: 2rem; display: flex; gap: 1rem; justify-content: flex-end;">
+                <button class="btn-secondary" onclick="closeModal()">Close</button>
+                <a href="influencer-offers.html" class="btn-primary">Manage Offer in Offers Tab</a>
             </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js"></script>
     <script>
-        // Supabase configuration
         const SUPABASE_URL = 'https://rbqphouxghbiynlqanmp.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJicXBob3V4Z2hiaXlubHFhbm1wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2NTAzNzIsImV4cCI6MjA3NjIyNjM3Mn0.VWSTqtXNy-twpJWk1VJqWRLfomKex8maiSf6wVuFlLM';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // Check authentication and role
+        // Global array to store offers so the modal can access them
+        let dashboardOffers = [];
+
         async function checkAuth() {
             const { data: { user } } = await supabaseClient.auth.getUser();
-            if (!user) {
-                window.location.href = '/';
-                return null;
-            }
-
-            // Check user role
-            const { data: profile, error } = await supabaseClient
-                .from('profiles')
-                .select('role')
-                .eq('id', user.id)
-                .single();
-
-            if (error) {
-                console.error('Error fetching profile:', error);
-                return null;
-            }
-
-            // Redirect if not influencer
-            if (profile.role !== 'influencer') {
-                window.location.href = '/brand-dashboard.html';
-                return null;
-            }
-
+            if (!user) { window.location.href = '/'; return null; }
+            const { data: profile, error } = await supabaseClient.from('profiles').select('role').eq('id', user.id).single();
+            if (error) { console.error('Error fetching profile:', error); return null; }
+            if (profile.role !== 'influencer') { window.location.href = '/brand-dashboard.html'; return null; }
             return user;
         }
 
-        // Logout function
-        async function logout() {
-            await supabaseClient.auth.signOut();
-            window.location.href = '/';
-        }
+        async function logout() { await supabaseClient.auth.signOut(); window.location.href = '/'; }
 
-        // Check profile completion
         async function checkProfileCompletion(userId) {
             try {
-                const { data: influencerProfile, error } = await supabaseClient
-                    .from('influencer_profiles')
-                    .select('*')
-                    .eq('profile_id', userId)
-                    .single();
-
-                if (error || !influencerProfile) {
-                    // No profile exists
-                    showProfileIncompleteMessage();
-                    return false;
-                }
-
-                // Check essential fields
+                const { data: influencerProfile, error } = await supabaseClient.from('influencer_profiles').select('*').eq('profile_id', userId).single();
+                if (error || !influencerProfile) { showProfileIncompleteMessage(); return false; }
                 const essentialFields = ['bio', 'platform', 'follower_count', 'niche', 'rate_range'];
-                const filledFields = essentialFields.filter(field => {
-                    const value = influencerProfile[field];
-                    return value !== null && value !== undefined && value !== '' && value !== 0;
-                });
-                
+                const filledFields = essentialFields.filter(field => { const value = influencerProfile[field]; return value !== null && value !== undefined && value !== '' && value !== 0; });
                 const completionPercentage = Math.round((filledFields.length / essentialFields.length) * 100);
-                
-                if (completionPercentage < 60) { // Less than 60% filled
-                    showProfileIncompleteMessage();
-                    return false;
-                }
-
+                if (completionPercentage < 60) { showProfileIncompleteMessage(); return false; }
                 return true;
-
-            } catch (error) {
-                console.error('Error checking profile completion:', error);
-                showProfileIncompleteMessage();
-                return false;
-            }
+            } catch (error) { console.error('Error checking profile completion:', error); showProfileIncompleteMessage(); return false; }
         }
 
         function showProfileIncompleteMessage() {
-            const profileWarning = document.getElementById('profileWarning');
-            profileWarning.style.display = 'block';
-            
-            const recentOffers = document.getElementById('recentOffers');
-            recentOffers.innerHTML = `
-                <div class="empty-state warning">
-                    <h3>Complete Your Profile to See Offers! 🎯</h3>
-                    <p>Brands can't discover you until you complete your profile. Fill out these essential fields:</p>
-                    <ul style="text-align: left; margin: 1rem 0;">
-                        <li>📝 Your bio and content description</li>
-                        <li>🎯 Your primary platform and niche</li>
-                        <li>👥 Your follower count</li>
-                        <li>💰 Your rate range</li>
+            document.getElementById('profileWarning').style.display = 'block';
+            document.getElementById('recentOffers').innerHTML = `
+                <div class="empty-state">
+                    <div style="font-size:2.5rem; margin-bottom:1rem;">🎯</div>
+                    <h3>Complete your profile to unlock offers</h3>
+                    <p>Brands can't discover you until your profile is ready. Fill out these key fields:</p>
+                    <ul style="text-align:left; margin:1.25rem auto; max-width:280px; color:var(--text-secondary); font-size:0.9rem; line-height:2; list-style:none;">
+                        <li>✦ Your bio and content description</li>
+                        <li>✦ Primary platform and niche</li>
+                        <li>✦ Follower count</li>
+                        <li>✦ Rate range</li>
                     </ul>
-                    <p>Complete your profile to start receiving brand offers and appearing in campaign matches!</p>
-                    <div style="margin-top: 1.5rem;">
-                        <a href="influencer-profile.html" class="btn-primary">Complete My Profile Now</a>
-                    </div>
-                </div>
-            `;
+                    <a href="influencer-profile.html" class="btn-primary" style="margin-top:0.5rem;">Complete My Profile</a>
+                </div>`;
         }
 
-        // Load dashboard data
         async function loadDashboardData() {
             const user = await checkAuth();
             if (!user) return;
-
-            console.log('Loading influencer dashboard for user:', user.id);
-
-            // Check profile completion first
             const isProfileComplete = await checkProfileCompletion(user.id);
-            
             if (isProfileComplete) {
-                // Load all data in parallel
-                await Promise.all([
-                    loadInfluencerOffers(user.id),
-                    loadInfluencerProfile(user.id),
-                    updateStats(user.id)
-                ]);
+                await Promise.all([loadInfluencerOffers(user.id), loadInfluencerProfile(user.id), updateStats(user.id)]);
             } else {
-                // Still load profile to show completion progress
                 await loadInfluencerProfile(user.id);
             }
         }
 
         async function loadInfluencerOffers(userId) {
             try {
-                console.log('Loading offers for influencer:', userId);
+                console.log("1. Fetching offers for Influencer ID:", userId);
                 
-                const { data: offers, error } = await supabaseClient
+                // Fetch basic offers first
+                const { data: offersData, error: offersError } = await supabaseClient
                     .from('offers')
-                    .select(`
-                        *,
-                        campaigns (
-                            id,
-                            name,
-                            brief_text,
-                            budget_range,
-                            target_audience,
-                            brand:profiles!campaigns_brand_id_fkey (
-                                full_name,
-                                username
-                            )
-                        )
-                    `)
+                    .select('*')
                     .eq('influencer_id', userId)
                     .order('created_at', { ascending: false })
                     .limit(10);
-
-                if (error) throw error;
-
-                console.log('Offers loaded:', offers);
-
-                const offersList = document.getElementById('recentOffers');
                 
-                if (!offers || offers.length === 0) {
-                    offersList.innerHTML = `
-                        <div class="empty-state">
-                            <h3>No Offers Yet</h3>
-                            <p>Your profile is complete! Brands will now discover you in their searches.</p>
-                            <p>Check back soon for collaboration opportunities.</p>
-                            <div style="margin-top: 1rem;">
-                                <a href="influencer-profile.html" class="btn-secondary">Update Profile</a>
-                            </div>
-                        </div>
-                    `;
+                if (offersError) throw offersError;
+                
+                if (!offersData || offersData.length === 0) {
+                    document.getElementById('recentOffers').innerHTML = `<div class="empty-state"><div style="font-size:2.5rem;margin-bottom:1rem">🎉</div><h3>Profile live! Awaiting offers</h3><p>Your profile is complete and visible to brands. Check back soon.</p></div>`;
                     return;
                 }
 
-                offersList.innerHTML = offers.map(offer => {
+                console.log("2. Raw Offers Found:", offersData);
+
+                // Manual loop to bypass complex join restrictions and identify RLS blocks
+                for(let offer of offersData) {
+                    offer.campaigns = {};
+                    offer.brand_name = 'Unknown Brand';
+
+                    if (offer.campaign_id) {
+                        // Fetch the Campaign
+                        const { data: campData, error: campError } = await supabaseClient
+                            .from('campaigns')
+                            .select('*')
+                            .eq('id', offer.campaign_id)
+                            .single();
+                        
+                        if (campError) {
+                            console.error(`🚨 RLS BLOCK: Cannot read Campaign ${offer.campaign_id}. Check Supabase RLS Policies!`, campError);
+                        } else if (campData) {
+                            offer.campaigns = campData;
+                            
+                            // Fetch the Brand Profile
+                            if (campData.brand_id) {
+                                const { data: profileData, error: profError } = await supabaseClient
+                                    .from('profiles')
+                                    .select('full_name')
+                                    .eq('id', campData.brand_id)
+                                    .single();
+                                
+                                if (profError) {
+                                    console.error(`🚨 RLS BLOCK: Cannot read Brand Profile ${campData.brand_id}.`, profError);
+                                } else if (profileData) {
+                                    offer.brand_name = profileData.full_name || 'Brand Partner';
+                                }
+                            }
+                        }
+                    }
+                }
+
+                console.log("3. Final Data ready for UI:", offersData);
+                dashboardOffers = offersData; // Save for modal
+
+                const offersList = document.getElementById('recentOffers');
+
+                // Render the UI
+                offersList.innerHTML = offersData.map(offer => {
                     const campaign = offer.campaigns;
-                    const brand = campaign?.brand;
+                    const dateDisplay = offer.created_at ? new Date(offer.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric'}) : 'Recently';
                     
-                    return `
-                        <div class="offer-item" data-offer-id="${offer.id}">
-                            <div class="offer-main">
-                                <div class="offer-header">
-                                    <h4>${campaign?.name || 'Unknown Campaign'}</h4>
-                                    <span class="status-badge ${offer.status}">${offer.status}</span>
-                                </div>
-                                <div class="offer-brand">
-                                    <strong>Brand:</strong> ${brand?.full_name || 'Unknown Brand'}
-                                </div>
-                                <div class="offer-description">
-                                    ${campaign?.brief_text ? campaign.brief_text.substring(0, 120) + '...' : 'No description available'}
-                                </div>
-                                <div class="offer-details">
-                                    ${campaign?.budget_range ? `<span class="budget">Budget: ${campaign.budget_range}</span>` : ''}
-                                    ${campaign?.target_audience ? `<span class="audience">Audience: ${campaign.target_audience}</span>` : ''}
-                                </div>
+                    return `<div class="offer-item">
+                        <div class="offer-main">
+                            <div class="offer-header">
+                                <h4>${campaign.name || 'Unnamed Campaign'}</h4>
+                                <span class="status-badge ${offer.status || 'pending'}">${offer.status || 'pending'}</span>
                             </div>
-                            
-                            <div class="offer-meta">
-                                <div class="offer-date">
-                                    ${new Date(offer.created_at).toLocaleDateString()}
-                                </div>
-                                ${offer.influencer_quote ? 
-                                    `<div class="offer-quote">Your Quote: $${offer.influencer_quote}</div>` : 
-                                    ''}
-                                ${offer.negotiated_amount ? 
-                                    `<div class="offer-negotiated">Agreed: $${offer.negotiated_amount}</div>` : 
-                                    ''}
-                            </div>
-                            
-                            <div class="offer-actions">
-                                ${offer.status === 'pending' ? `
-                                    <button onclick="viewOfferDetails('${offer.id}')" class="btn-secondary">View Details</button>
-                                    <button onclick="startNegotiation('${offer.id}')" class="btn-primary">Submit Quote</button>
-                                    <button onclick="declineOffer('${offer.id}')" class="btn-danger">Decline</button>
-                                ` : ''}
-                                ${offer.status === 'negotiating' ? `
-                                    <button onclick="continueNegotiation('${offer.id}')" class="btn-primary">Continue Negotiation</button>
-                                    <button onclick="viewOfferDetails('${offer.id}')" class="btn-secondary">View Details</button>
-                                ` : ''}
-                                ${offer.status === 'accepted' ? `
-                                    <button onclick="viewContract('${offer.id}')" class="btn-success">View Contract</button>
-                                    <button onclick="viewOfferDetails('${offer.id}')" class="btn-secondary">Details</button>
-                                ` : ''}
-                                ${offer.status === 'rejected' ? `
-                                    <button onclick="viewOfferDetails('${offer.id}')" class="btn-secondary">View Details</button>
-                                ` : ''}
+                            <div class="offer-brand">by <strong>${offer.brand_name}</strong></div>
+                            <div class="offer-description">${campaign.brief_text ? campaign.brief_text.substring(0, 120) + '...' : 'No brief provided'}</div>
+                            <div class="offer-details">
+                                <span class="offer-tag">💰 ${offer.brand_budget_range || campaign.budget_range || 'Negotiable'}</span>
+                                ${campaign.target_audience ? `<span class="offer-tag">👥 ${campaign.target_audience}</span>` : ''}
                             </div>
                         </div>
-                    `;
+                        <div class="offer-meta">
+                            <div class="offer-date">${dateDisplay}</div>
+                            ${offer.influencer_quote ? `<div class="offer-quote">Your Quote: $${offer.influencer_quote}</div>` : ''}
+                            ${offer.negotiated_amount ? `<div class="offer-negotiated">Agreed: $${offer.negotiated_amount}</div>` : ''}
+                        </div>
+                        <div class="offer-actions">
+                            <button onclick="viewOfferDetails('${offer.id}')" class="btn-secondary">Details</button>
+                        </div>
+                    </div>`;
                 }).join('');
-
             } catch (error) {
-                console.error('Error loading offers:', error);
-                document.getElementById('recentOffers').innerHTML = `
-                    <div class="empty-state error">
-                        <h3>Error Loading Offers</h3>
-                        <p>There was a problem loading your offers. Please try again.</p>
-                        <button onclick="loadInfluencerOffers('${userId}')" class="btn-secondary">Retry</button>
-                    </div>
-                `;
+                console.error('Fatal Error loading offers:', error);
+                document.getElementById('recentOffers').innerHTML = `<div class="empty-state"><h3>Failed to load offers</h3><p>Please try again.</p><button onclick="loadInfluencerOffers('${userId}')" class="btn-secondary">Retry</button></div>`;
             }
         }
-
         async function loadInfluencerProfile(userId) {
             try {
-                const { data: profile, error } = await supabaseClient
-                    .from('influencer_profiles')
-                    .select('*')
-                    .eq('profile_id', userId)
-                    .single();
-
+                const { data: profile, error } = await supabaseClient.from('influencer_profiles').select('*').eq('profile_id', userId).single();
                 if (error) {
-                    // Profile doesn't exist yet
                     document.getElementById('profileCompletionSection').style.display = 'block';
                     document.getElementById('completionScore').textContent = '10%';
                     document.getElementById('completionFill').style.width = '10%';
-                    document.getElementById('completionMessage').innerHTML = `
-                        <p>Start building your profile to get discovered by brands!</p>
-                    `;
+                    document.getElementById('completionMessage').innerHTML = '<p>Start building your profile to get discovered by brands!</p>';
                     return;
                 }
-
-                // Calculate detailed profile completion score
-                const essentialFields = [
-                    { field: 'bio', weight: 20 },
-                    { field: 'platform', weight: 15 },
-                    { field: 'follower_count', weight: 15 },
-                    { field: 'niche', weight: 15 },
-                    { field: 'rate_range', weight: 10 },
-                    { field: 'engagement_rate', weight: 10 },
-                    { field: 'location', weight: 5 },
-                    { field: 'audience_age', weight: 5 },
-                    { field: 'content_description', weight: 5 }
-                ];
-
+                const essentialFields = [{field:'bio',weight:20},{field:'platform',weight:15},{field:'follower_count',weight:15},{field:'niche',weight:15},{field:'rate_range',weight:10},{field:'engagement_rate',weight:10},{field:'location',weight:5},{field:'audience_age',weight:5},{field:'content_description',weight:5}];
                 let completion = 0;
-                essentialFields.forEach(({ field, weight }) => {
-                    const value = profile[field];
-                    if (value !== null && value !== undefined && value !== '' && value !== 0) {
-                        completion += weight;
-                    }
-                });
-
+                essentialFields.forEach(({field, weight}) => { const value = profile[field]; if (value !== null && value !== undefined && value !== '' && value !== 0) completion += weight; });
                 document.getElementById('profileCompletionSection').style.display = 'block';
                 document.getElementById('completionScore').textContent = completion + '%';
                 document.getElementById('completionFill').style.width = completion + '%';
-
-                // Update completion message based on score
-                const completionMessage = document.getElementById('completionMessage');
-                if (completion >= 80) {
-                    completionMessage.innerHTML = `
-                        <p style="color: #28a745;">🎉 Excellent! Your profile is complete and ready for brand matches!</p>
-                    `;
-                } else if (completion >= 60) {
-                    completionMessage.innerHTML = `
-                        <p style="color: #ffc107;">👍 Good start! Complete more fields to get better brand matches.</p>
-                    `;
-                } else {
-                    completionMessage.innerHTML = `
-                        <p style="color: #dc3545;">Complete your profile to start receiving brand offers and appear in matches.</p>
-                    `;
-                }
-
-            } catch (error) {
-                console.error('Error loading influencer profile:', error);
-            }
+                const msg = document.getElementById('completionMessage');
+                if (completion >= 80) msg.innerHTML = '<p style="color:var(--teal)">🎉 Excellent! Your profile is live and ready for brand matches.</p>';
+                else if (completion >= 60) msg.innerHTML = '<p style="color:var(--warning)">👍 Good progress! A few more fields will boost your visibility.</p>';
+                else msg.innerHTML = '<p style="color:var(--danger)">Complete your profile to start receiving brand offers and appear in matches.</p>';
+            } catch (error) { console.error('Error loading influencer profile:', error); }
         }
 
         async function updateStats(userId) {
             try {
-                // Count new offers (pending status)
-                const { count: newOffers, error: offersError } = await supabaseClient
-                    .from('offers')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('influencer_id', userId)
-                    .eq('status', 'pending');
-
-                // Count active deals (accepted or negotiating)
-                const { count: activeDeals, error: dealsError } = await supabaseClient
-                    .from('offers')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('influencer_id', userId)
-                    .in('status', ['accepted', 'negotiating']);
-
-                // Calculate total earnings from accepted offers
-                const { data: earningsData, error: earningsError } = await supabaseClient
-                    .from('offers')
-                    .select('negotiated_amount')
-                    .eq('influencer_id', userId)
-                    .eq('status', 'accepted');
-
+                const { count: newOffers } = await supabaseClient.from('offers').select('*', {count:'exact',head:true}).eq('influencer_id', userId).eq('status', 'pending');
+                const { count: activeDeals } = await supabaseClient.from('offers').select('*', {count:'exact',head:true}).eq('influencer_id', userId).in('status', ['accepted','negotiating']);
+                const { data: earningsData } = await supabaseClient.from('offers').select('negotiated_amount').eq('influencer_id', userId).eq('status', 'accepted');
                 const totalEarnings = earningsData?.reduce((sum, offer) => sum + (offer.negotiated_amount || 0), 0) || 0;
-
-                // Calculate response rate
-                const { data: allOffers, error: allOffersError } = await supabaseClient
-                    .from('offers')
-                    .select('status')
-                    .eq('influencer_id', userId);
-
-                const respondedOffers = allOffers?.filter(offer => 
-                    ['negotiating', 'accepted', 'rejected'].includes(offer.status)
-                ).length || 0;
-                
+                const { data: allOffers } = await supabaseClient.from('offers').select('status').eq('influencer_id', userId);
+                const respondedOffers = allOffers?.filter(offer => ['negotiating','accepted','rejected'].includes(offer.status)).length || 0;
                 const totalReceived = allOffers?.length || 0;
                 const responseRate = totalReceived > 0 ? Math.round((respondedOffers / totalReceived) * 100) : 0;
-
-                // Update UI
                 document.getElementById('newOffers').textContent = newOffers || 0;
                 document.getElementById('activeDeals').textContent = activeDeals || 0;
                 document.getElementById('totalEarnings').textContent = '$' + totalEarnings;
                 document.getElementById('responseRate').textContent = responseRate + '%';
-
-            } catch (error) {
-                console.error('Error updating stats:', error);
-            }
+            } catch (error) { console.error('Error updating stats:', error); }
         }
 
+        // --- NEW: Modal Logic ---
         function viewOfferDetails(offerId) {
-            // For now, show a simple alert. In next phase, create a detailed offer page.
-            alert('Offer details page will be implemented in the next phase. Offer ID: ' + offerId);
+            // Find the offer in our global array
+            const offer = dashboardOffers.find(o => o.id === offerId);
+            if (!offer) return;
+
+            // Populate the modal
+            document.getElementById('modalCampaignName').textContent = offer.campaigns?.name || 'Unnamed Campaign';
+            document.getElementById('modalBrandName').textContent = offer.brand_name;
+            document.getElementById('modalStatus').textContent = offer.status;
+            document.getElementById('modalStatus').className = `status-badge ${offer.status}`;
+            
+            document.getElementById('modalBrief').textContent = offer.campaigns?.brief_text || 'No detailed brief provided.';
+            document.getElementById('modalBudget').textContent = offer.campaigns?.budget_range || 'Negotiable';
+            document.getElementById('modalAudience').textContent = offer.campaigns?.target_audience || 'General';
+            document.getElementById('modalDate').textContent = offer.created_at ? new Date(offer.created_at).toLocaleDateString() : 'Recently';
+
+            if (offer.brand_notes) {
+                document.getElementById('modalBrandNotesContainer').style.display = 'flex';
+                document.getElementById('modalBrandNotes').textContent = offer.brand_notes;
+            } else {
+                document.getElementById('modalBrandNotesContainer').style.display = 'none';
+            }
+
+            // Show the modal
+            document.getElementById('offerModal').style.display = 'flex';
         }
 
-        function startNegotiation(offerId) {
-            alert('Negotiation feature will be implemented in the next phase. Offer ID: ' + offerId);
+        function closeModal() {
+            document.getElementById('offerModal').style.display = 'none';
         }
 
-        function continueNegotiation(offerId) {
-            alert('Continue negotiation feature will be implemented in the next phase. Offer ID: ' + offerId);
-        }
-
-        function declineOffer(offerId) {
-            if (confirm('Are you sure you want to decline this offer?')) {
-                alert('Offer declined. This feature will be fully implemented in the next phase.');
+        // Close modal if user clicks outside of it
+        window.onclick = function(event) {
+            const modal = document.getElementById('offerModal');
+            if (event.target == modal) {
+                closeModal();
             }
         }
 
-        function viewContract(offerId) {
-            alert('Contract viewing will be implemented in next phase');
-        }
-
-        // Initialize dashboard when page loads
         document.addEventListener('DOMContentLoaded', loadDashboardData);
     </script>
 
     <style>
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 3rem;
-        }
-
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; margin-bottom: 2rem; }
         .stat-card {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            display: flex;
-            align-items: center;
-            gap: 1rem;
+            background: var(--glass); border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg); padding: 1.5rem;
+            display: flex; align-items: center; gap: 1.25rem;
+            backdrop-filter: blur(12px); transition: all 0.3s;
         }
-
-        .stat-icon {
-            font-size: 2rem;
-        }
-
-        .stat-content h3 {
-            margin: 0 0 0.5rem 0;
-            color: #666;
-            font-size: 0.9rem;
-            font-weight: 600;
-        }
-
-        .stat-number {
-            margin: 0;
-            font-size: 2rem;
-            font-weight: bold;
-            color: #667eea;
-        }
+        .stat-card:hover { border-color: rgba(212,168,83,0.35); transform: translateY(-2px); box-shadow: var(--shadow-gold); }
+        .stat-icon-wrap { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0; }
+        .stat-label { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.35rem; }
+        .stat-number { font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 700; color: var(--gold); line-height: 1; margin: 0; }
 
         .warning-banner {
-            background: linear-gradient(135deg, #fff3cd, #ffeaa7);
-            border: 1px solid #ffeaa7;
-            border-radius: 10px;
-            padding: 1.5rem;
-            margin-bottom: 2rem;
-            box-shadow: 0 2px 10px rgba(255, 193, 7, 0.2);
+            background: linear-gradient(135deg, rgba(240,201,122,0.08), rgba(240,201,122,0.04));
+            border: 1px solid rgba(240,201,122,0.25); border-radius: var(--radius-lg);
+            padding: 1.5rem; margin-bottom: 1.5rem;
         }
+        .warning-content { display: flex; align-items: center; gap: 1.25rem; }
+        .warning-emoji { font-size: 2rem; flex-shrink: 0; }
+        .warning-text { flex: 1; }
+        .warning-text h3 { color: var(--warning); margin-bottom: 0.35rem; font-size: 1rem; }
+        .warning-text p { font-size: 0.875rem; color: var(--text-secondary); }
 
-        .warning-content {
-            display: flex;
-            align-items: center;
-            gap: 1.5rem;
-        }
-
-        .warning-icon {
-            font-size: 2rem;
-        }
-
-        .warning-text {
-            flex: 1;
-        }
-
-        .warning-text h3 {
-            margin: 0 0 0.5rem 0;
-            color: #856404;
-        }
-
-        .warning-text p {
-            margin: 0;
-            color: #856404;
-            opacity: 0.9;
-        }
-
-        .btn-warning {
-            background: #ffc107;
-            color: #856404;
-            padding: 10px 20px;
-            border-radius: 5px;
-            text-decoration: none;
-            font-weight: 600;
-            border: none;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-
-        .btn-warning:hover {
-            background: #e0a800;
-        }
-
-        .recent-section {
-            background: white;
-            padding: 2rem;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
-        }
-
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-        }
-
-        .section-header h2 {
-            color: #333;
-            margin: 0;
-        }
-
-        .completion-score {
-            background: #667eea;
-            color: white;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-weight: 600;
-            font-size: 0.875rem;
-        }
-
-        .completion-bar {
-            background: #e0e0e0;
-            height: 8px;
-            border-radius: 4px;
-            overflow: hidden;
-            margin-top: 1rem;
-        }
-
-        .completion-fill {
-            background: #667eea;
-            height: 100%;
-            transition: width 0.3s ease;
-        }
-
-        .completion-message {
-            margin-top: 1rem;
-        }
-
-        .tips-section {
-            background: white;
-            padding: 2rem;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
-        }
-
-        .tips-section h3 {
-            color: #333;
-            margin-bottom: 1.5rem;
-            text-align: center;
-        }
-
-        .tips-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-        }
-
-        .tip-card {
-            text-align: center;
-            padding: 1.5rem;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            background: #fafafa;
-        }
-
-        .tip-icon {
-            font-size: 2rem;
-            margin-bottom: 1rem;
-        }
-
-        .tip-card h4 {
-            margin: 0 0 0.5rem 0;
-            color: #333;
-        }
-
-        .tip-card p {
-            margin: 0;
-            color: #666;
-            font-size: 0.9rem;
-            line-height: 1.4;
-        }
-
-        .offers-list {
-            display: grid;
-            gap: 1.5rem;
-        }
-
+        .offers-list { display: flex; flex-direction: column; gap: 1rem; }
         .offer-item {
-            display: grid;
-            grid-template-columns: 1fr auto auto;
-            gap: 1.5rem;
-            align-items: center;
-            padding: 1.5rem;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            background: #fafafa;
-            transition: transform 0.2s ease;
+            display: grid; grid-template-columns: 1fr auto auto;
+            gap: 1.5rem; align-items: center; padding: 1.25rem 1.5rem;
+            background: var(--white-10); border: 1px solid var(--border-subtle);
+            border-radius: var(--radius); transition: all 0.25s;
         }
+        .offer-item:hover { background: rgba(255,255,255,0.06); border-color: var(--border); }
+        .offer-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; margin-bottom: 0.4rem; }
+        .offer-header h4 { font-size: 0.95rem; color: var(--text-primary); flex: 1; margin: 0; }
+        .offer-brand { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.4rem; }
+        .offer-brand strong { color: var(--text-secondary); }
+        .offer-description { font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 0.6rem; }
+        .offer-details { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .offer-tag { background: var(--white-10); border: 1px solid var(--border-subtle); padding: 3px 10px; border-radius: 50px; font-size: 0.75rem; color: var(--text-muted); }
+        .offer-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 0.4rem; min-width: 90px; }
+        .offer-date { color: var(--text-muted); font-size: 0.8rem; }
+        .offer-quote { color: var(--teal); font-weight: 600; font-size: 0.875rem; }
+        .offer-negotiated { color: var(--gold); font-weight: 600; font-size: 0.875rem; }
+        .offer-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
 
-        .offer-item:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
+        .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; }
+        .status-badge.pending { background: #fef3c7; color: #d97706; }
+        .status-badge.negotiating { background: #e0e7ff; color: #4f46e5; }
+        .status-badge.accepted { background: #d1fae5; color: #059669; }
+        .status-badge.rejected { background: #fee2e2; color: #e11d48; }
 
-        .offer-main {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
+        .tips-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+        .tip-card {
+            padding: 1.5rem; border: 1px solid var(--border-subtle);
+            border-radius: var(--radius); background: var(--white-10);
+            transition: all 0.25s; text-align: center;
         }
+        .tip-card:hover { border-color: var(--border); background: rgba(255,255,255,0.06); }
+        .tip-icon { font-size: 1.75rem; margin-bottom: 0.75rem; }
+        .tip-card h4 { margin-bottom: 0.5rem; font-size: 0.9rem; margin-top: 0;}
+        .tip-card p { font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; margin: 0;}
 
-        .offer-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 1rem;
+        /* Modal Styles */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7); z-index: 1000; align-items: center; justify-content: center;
+            backdrop-filter: blur(5px);
         }
-
-        .offer-header h4 {
-            margin: 0;
-            color: #333;
-            flex: 1;
+        .modal-content {
+            background: var(--navy); border: 1px solid var(--glass-border); border-radius: var(--radius-lg);
+            padding: 2.5rem; max-width: 600px; width: 90%; position: relative; max-height: 90vh; overflow-y: auto;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.4);
         }
-
-        .offer-brand {
-            font-weight: 600;
-            color: #333;
+        .modal-close {
+            position: absolute; top: 1.5rem; right: 1.5rem; font-size: 2rem; color: var(--text-muted);
+            cursor: pointer; transition: color 0.2s; line-height: 1;
         }
-
-        .offer-description {
-            color: #666;
-            font-size: 0.9rem;
-            line-height: 1.4;
-        }
-
-        .offer-details {
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
-
-        .budget, .audience {
-            background: #e9ecef;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            color: #666;
-        }
-
-        .offer-meta {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 0.5rem;
-            min-width: 120px;
-        }
-
-        .status-badge {
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: capitalize;
-            white-space: nowrap;
-        }
-
-        .status-badge.pending {
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        .status-badge.negotiating {
-            background: #d1ecf1;
-            color: #0c5460;
-        }
-
-        .status-badge.accepted {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .status-badge.rejected {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        .offer-date {
-            color: #999;
-            font-size: 0.875rem;
-        }
-
-        .offer-quote, .offer-negotiated {
-            font-weight: 600;
-            font-size: 0.9rem;
-        }
-
-        .offer-quote {
-            color: #28a745;
-        }
-
-        .offer-negotiated {
-            color: #007bff;
-        }
-
-        .offer-actions {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
-
-        .btn-success {
-            background: #28a745;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 0.875rem;
-        }
-
-        .btn-danger {
-            background: #dc3545;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 0.875rem;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 3rem;
-            color: #666;
-        }
-
-        .empty-state.warning {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            border-radius: 8px;
-        }
-
-        .empty-state.error {
-            color: #dc3545;
-        }
-
-        .empty-state ul {
-            display: inline-block;
-            text-align: left;
-        }
-
-        .loading-spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 1rem;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+        .modal-close:hover { color: var(--white); }
+        .modal-section { margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-subtle); }
+        .modal-section h3 { font-size: 0.9rem; color: var(--gold); margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-top:0; }
+        .modal-section p { color: var(--text-secondary); font-size: 0.95rem; line-height: 1.6; margin: 0; }
+        .modal-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.75rem; }
+        .modal-list li { color: var(--text-secondary); font-size: 0.95rem; display: flex; gap: 0.5rem; flex-wrap: wrap;}
+        .modal-list li strong { color: var(--white); min-width: 140px; }
 
         @media (max-width: 768px) {
-            .warning-content {
-                flex-direction: column;
-                text-align: center;
-                gap: 1rem;
-            }
-            
-            .offer-item {
-                grid-template-columns: 1fr;
-                text-align: center;
-            }
-            
-            .offer-header {
-                flex-direction: column;
-                align-items: center;
-            }
-            
-            .offer-meta {
-                align-items: center;
-            }
-            
-            .offer-actions {
-                justify-content: center;
-            }
-            
-            .stats-grid {
-                grid-template-columns: 1fr 1fr;
-            }
-            
-            .tips-grid {
-                grid-template-columns: 1fr;
-            }
+            .warning-content { flex-direction: column; text-align: center; }
+            .offer-item { grid-template-columns: 1fr; }
+            .offer-header { flex-direction: column; }
+            .offer-meta { align-items: flex-start; }
+            .stats-grid { grid-template-columns: 1fr 1fr; }
+            .modal-content { padding: 1.5rem; }
+            .modal-list li { flex-direction: column; gap: 0.2rem; }
         }
-
-        @media (max-width: 480px) {
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-        }
+        @media (max-width: 480px) { .stats-grid { grid-template-columns: 1fr; } }
     </style>
 </body>
 </html>
