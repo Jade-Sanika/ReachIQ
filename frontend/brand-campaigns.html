@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Campaigns - ReachIQ</title>
+    <link rel="stylesheet" href="styles/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">ReachIQ</div>
+        <div class="nav-links">
+            <a href="brand-dashboard.html">Dashboard</a>
+            <a href="brand-campaigns.html" class="active">Campaigns</a>
+            <a href="creator-discovery.html">Discover</a>
+            <a href="brand-offers.html">Offers</a>
+            <a href="video-tracker.html">Tracker</a>
+            <button onclick="logout()" class="btn-logout">Sign Out</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header class="dashboard-header" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:1rem;">
+            <div>
+                <p style="color:var(--gold);font-size:0.8rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.4rem;">Lifecycle Control</p>
+                <h1>Manage Campaigns</h1>
+                <p style="margin-top:0.4rem;">Track milestones, creator submissions, negotiation outcomes, and escrow-style payment progress in one place.</p>
+            </div>
+            <a href="create-campaign.html" class="btn-primary">+ New Campaign</a>
+        </header>
+
+        <div id="campaignsContainer" class="campaigns-stack">
+            <div class="empty-state">
+                <div class="loading-spinner"></div>
+                <p>Loading campaign management view...</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="fulfillmentModal" class="modal-overlay">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeFulfillmentModal()">&times;</span>
+            <h2 id="fulfillmentTitle">Review Deliverable</h2>
+            <p id="fulfillmentSubtitle" style="color:var(--text-muted);margin-top:0.35rem;"></p>
+
+            <div class="modal-section">
+                <div class="form-group">
+                    <label for="deliverableStatusSelect">Deliverable Status</label>
+                    <select id="deliverableStatusSelect">
+                        <option value="submitted">Submitted</option>
+                        <option value="reviewed">Reviewed</option>
+                        <option value="approved">Approved</option>
+                        <option value="milestone_hit">Milestone Hit</option>
+                        <option value="revisions_requested">Revisions Requested</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="paymentStatusSelect">Payment Status</label>
+                    <select id="paymentStatusSelect">
+                        <option value="escrow_pending">Escrow Pending</option>
+                        <option value="payment_processing">Payment Processing</option>
+                        <option value="paid">Paid</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="reviewNotesInput">Review Notes</label>
+                    <textarea id="reviewNotesInput" rows="4" placeholder="Add brand review notes, requirement checks, or payment context"></textarea>
+                </div>
+            </div>
+
+            <div style="margin-top:2rem;display:flex;gap:1rem;justify-content:flex-end;flex-wrap:wrap;">
+                <button class="btn-secondary" onclick="closeFulfillmentModal()">Close</button>
+                <button class="btn-primary" onclick="saveFulfillmentUpdate()" id="fulfillmentSaveBtn">Save Update</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/notifications.js"></script>
+    <script src="js/profile-menu.js"></script>
+    <script>
+        const supabaseClient = window.ReachIQ.createSupabaseClient();
+        let campaignData = [];
+        let selectedOfferId = null;
+
+        async function init() {
+            const auth = await window.ReachIQ.requireRole(supabaseClient, 'brand');
+            if (!auth) return;
+            await loadCampaigns();
+        }
+
+        async function loadCampaigns() {
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                const response = await fetch(window.ReachIQ.apiUrl('/brand/campaigns'), {
+                    headers: { 'Authorization': `Bearer ${session.access_token}` }
+                });
+                const payload = await window.ReachIQ.parseJsonResponse(response);
+                if (!response.ok) throw new Error(payload.error || 'Failed to load campaigns');
+                campaignData = payload.campaigns || [];
+                renderCampaigns();
+            } catch (error) {
+                document.getElementById('campaignsContainer').innerHTML = `<div class="empty-state"><h3>Could not load campaigns</h3><p>${error.message}</p></div>`;
+            }
+        }
+
+        function renderCampaigns() {
+            const container = document.getElementById('campaignsContainer');
+            if (!campaignData.length) {
+                container.innerHTML = `<div class="empty-state"><h3>No campaigns yet</h3><p>Create your first campaign to start creator delivery tracking.</p><a href="create-campaign.html" class="btn-primary" style="margin-top:1rem;">Create Campaign</a></div>`;
+                return;
+            }
+
+            container.innerHTML = campaignData.map(campaign => `
+                <section class="campaign-panel">
+                    <div class="campaign-panel-header">
+                        <div>
+                            <div class="campaign-title-row">
+                                <h2>${campaign.name}</h2>
+                                <span class="status-badge ${campaign.status}">${campaign.status}</span>
+                            </div>
+                            <p class="campaign-brief">${campaign.brief_text || 'No brief provided.'}</p>
+                        </div>
+                        <div class="campaign-actions">
+                            <a href="creator-discovery.html?campaign=${campaign.id}" class="btn-secondary">Find Creators</a>
+                            ${campaign.can_analyze ? `<button class="btn-primary" onclick="openCompletedCampaign('${campaign.id}')">Analyze Milestones</button>` : ''}
+                        </div>
+                    </div>
+
+                    <div class="campaign-summary-grid">
+                        <div class="summary-box">
+                            <span>Budget</span>
+                            <strong>${campaign.budget_range || 'Negotiable'}</strong>
+                        </div>
+                        <div class="summary-box">
+                            <span>Milestone Target</span>
+                            <strong>${campaign.milestone_views ? campaign.milestone_views.toLocaleString() + ' views' : 'Not set'}</strong>
+                        </div>
+                        <div class="summary-box">
+                            <span>Timeline</span>
+                            <strong>${campaign.deadline || 'No deadline'}</strong>
+                        </div>
+                        <div class="summary-box">
+                            <span>Submitted Videos</span>
+                            <strong>${campaign.submitted_deliverables} / ${campaign.offers.length}</strong>
+                        </div>
+                    </div>
+
+                    ${campaign.timeline_requirements ? `<div class="timeline-box"><strong>Timeline Requirements:</strong> ${campaign.timeline_requirements}</div>` : ''}
+
+                    <div class="submissions-section">
+                        <div class="section-head">
+                            <h3>Creator Deliverables & Negotiation Summary</h3>
+                            <span>${campaign.milestone_hits} milestone hit</span>
+                        </div>
+                        ${campaign.offers.length ? campaign.offers.map(offer => `
+                            <div class="submission-row">
+                                <div class="submission-main">
+                                    <div class="submission-topline">
+                                        <strong>${offer.influencer?.full_name || 'Creator'}</strong>
+                                        <span>${offer.influencer?.username ? '@' + offer.influencer.username : ''}</span>
+                                    </div>
+                                    <p class="submission-meta">Negotiation: ${offer.negotiation_summary?.headline || 'No summary yet'}</p>
+                                    <p class="submission-meta">Deliverable: ${offer.deliverable_url ? `<a href="${offer.deliverable_url}" target="_blank" rel="noopener noreferrer">Open submitted video</a>` : 'Waiting for creator submission'}</p>
+                                    <p class="submission-meta">Escrow: ${formatStatusLabel(offer.payment_status)} • Review: ${formatStatusLabel(offer.deliverable_status)}</p>
+                                </div>
+                                <div class="submission-metrics">
+                                    <span>${offer.negotiated_amount ? window.ReachIQ.formatInr(offer.negotiated_amount) : (offer.campaigns?.budget_range || 'Negotiable')}</span>
+                                    <small>${offer.analytics_preview ? `${offer.analytics_preview.views.toLocaleString()} views` : 'Analytics pending'}</small>
+                                </div>
+                                <div class="submission-actions">
+                                    ${offer.deliverable_url ? `<button class="btn-secondary" onclick="openOfferAnalytics('${offer.id}')">Open Analytics</button>` : ''}
+                                    <button class="btn-primary" onclick="openFulfillmentModal('${offer.id}')">Review & Payment</button>
+                                </div>
+                            </div>
+                        `).join('') : `<div class="empty-inline">No creators linked to this campaign yet.</div>`}
+                    </div>
+                </section>
+            `).join('');
+        }
+
+        function formatStatusLabel(value) {
+            return (value || 'pending').replace(/_/g, ' ');
+        }
+
+        function openOfferAnalytics(offerId) {
+            window.location.href = `video-tracker.html?offer=${offerId}`;
+        }
+
+        function openCompletedCampaign(campaignId) {
+            const campaign = campaignData.find(item => item.id === campaignId);
+            const firstSubmitted = (campaign?.offers || []).find(offer => offer.deliverable_url);
+            if (!firstSubmitted) return;
+            openOfferAnalytics(firstSubmitted.id);
+        }
+
+        function openFulfillmentModal(offerId) {
+            selectedOfferId = offerId;
+            const offer = campaignData.flatMap(campaign => campaign.offers || []).find(item => item.id === offerId);
+            if (!offer) return;
+
+            document.getElementById('fulfillmentTitle').textContent = offer.influencer?.full_name || 'Review Deliverable';
+            document.getElementById('fulfillmentSubtitle').textContent = offer.campaigns?.name || '';
+            document.getElementById('deliverableStatusSelect').value = offer.deliverable_status || 'submitted';
+            document.getElementById('paymentStatusSelect').value = offer.payment_status || 'escrow_pending';
+            document.getElementById('reviewNotesInput').value = offer.review_notes || '';
+            document.getElementById('fulfillmentModal').style.display = 'flex';
+        }
+
+        function closeFulfillmentModal() {
+            selectedOfferId = null;
+            document.getElementById('fulfillmentModal').style.display = 'none';
+        }
+
+        async function saveFulfillmentUpdate() {
+            if (!selectedOfferId) return;
+            const saveBtn = document.getElementById('fulfillmentSaveBtn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                const response = await fetch(window.ReachIQ.apiUrl('/offers/update-fulfillment'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${session.access_token}`
+                    },
+                    body: JSON.stringify({
+                        offer_id: selectedOfferId,
+                        deliverable_status: document.getElementById('deliverableStatusSelect').value,
+                        payment_status: document.getElementById('paymentStatusSelect').value,
+                        review_notes: document.getElementById('reviewNotesInput').value
+                    })
+                });
+                const payload = await window.ReachIQ.parseJsonResponse(response);
+                if (!response.ok) throw new Error(payload.error || 'Failed to save fulfillment update');
+                closeFulfillmentModal();
+                await loadCampaigns();
+            } catch (error) {
+                alert(error.message);
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save Update';
+            }
+        }
+
+        async function logout() {
+            await supabaseClient.auth.signOut();
+            window.location.href = '/';
+        }
+
+        window.addEventListener('click', (event) => {
+            if (event.target.id === 'fulfillmentModal') {
+                closeFulfillmentModal();
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+
+    <style>
+        .campaigns-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        .campaign-panel {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            backdrop-filter: blur(12px);
+        }
+        .campaign-panel-header,
+        .campaign-title-row,
+        .section-head {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .campaign-brief,
+        .submission-meta {
+            color: var(--text-muted);
+            font-size: 0.88rem;
+            line-height: 1.5;
+            margin-top: 0.4rem;
+        }
+        .campaign-actions,
+        .submission-actions {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .campaign-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-top: 1.25rem;
+        }
+        .summary-box,
+        .timeline-box,
+        .submission-row {
+            background: var(--white-10);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius);
+        }
+        .summary-box {
+            padding: 1rem;
+        }
+        .summary-box span {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 0.35rem;
+        }
+        .summary-box strong {
+            color: var(--white);
+            font-size: 1rem;
+        }
+        .timeline-box {
+            margin-top: 1rem;
+            padding: 1rem;
+            color: var(--text-secondary);
+        }
+        .submissions-section {
+            margin-top: 1.25rem;
+        }
+        .submission-row {
+            display: grid;
+            grid-template-columns: 1.6fr 0.8fr 0.9fr;
+            gap: 1rem;
+            padding: 1rem;
+            margin-top: 0.85rem;
+            align-items: center;
+        }
+        .submission-topline {
+            display: flex;
+            gap: 0.6rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .submission-topline strong {
+            color: var(--text-primary);
+        }
+        .submission-topline span,
+        .submission-metrics small,
+        .section-head span {
+            color: var(--text-muted);
+            font-size: 0.78rem;
+        }
+        .submission-metrics {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            text-align: center;
+        }
+        .submission-metrics span {
+            color: var(--gold);
+            font-weight: 700;
+        }
+        .empty-inline {
+            padding: 1rem;
+            color: var(--text-muted);
+        }
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+        }
+        .modal-content {
+            background: var(--navy);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+            max-width: 620px;
+            width: 92%;
+            position: relative;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-close {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            font-size: 2rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            line-height: 1;
+        }
+        .modal-section {
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border-subtle);
+        }
+        @media (max-width: 900px) {
+            .submission-row {
+                grid-template-columns: 1fr;
+            }
+            .submission-metrics {
+                text-align: left;
+            }
+        }
+    </style>
+</body>
+</html>

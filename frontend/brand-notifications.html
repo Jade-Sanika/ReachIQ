@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brand Notifications - ReachIQ</title>
+    <link rel="stylesheet" href="styles/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">ReachIQ</div>
+        <div class="nav-links">
+            <a href="brand-dashboard.html">Dashboard</a>
+            <a href="brand-campaigns.html">Campaigns</a>
+            <a href="creator-discovery.html">Discover</a>
+            <a href="brand-offers.html">Offers</a>
+            <a href="video-tracker.html">Tracker</a>
+            <button onclick="logout()" class="btn-logout">Sign Out</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header class="dashboard-header">
+            <p style="color:var(--gold);font-size:0.8rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.4rem;">Inbox</p>
+            <h1>Brand Notifications</h1>
+            <p style="margin-top:0.4rem;">Track creator replies, deliverable submissions, milestone hits, and payment-ready updates.</p>
+        </header>
+
+        <section class="notifications-shell">
+            <div id="notificationsList" class="notification-list">
+                <div class="empty-state">
+                    <div class="loading-spinner"></div>
+                    <p>Loading notifications...</p>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/notifications.js"></script>
+    <script src="js/profile-menu.js"></script>
+    <script>
+        const supabaseClient = window.ReachIQ.createSupabaseClient();
+        window.ReachIQ.requireRole(supabaseClient, 'brand');
+        async function logout() { await supabaseClient.auth.signOut(); window.location.href = '/'; }
+    </script>
+</body>
+</html>

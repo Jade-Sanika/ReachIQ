@@ -12,7 +12,7 @@
         <div class="nav-links">
             <a href="influencer-dashboard.html">Dashboard</a>
             <a href="influencer-offers.html">Offers</a>
-            <a href="influencer-profile.html">Profile</a>
+            <a href="influencer-profile.html" class="active">Profile</a>
             <button onclick="logout()" class="btn-logout">Sign Out</button>
         </div>
     </nav>
@@ -48,15 +48,15 @@
                     <div class="rate-display">
                         <div class="rate-bound">
                             <p class="rate-bound-label">Min</p>
-                            <p class="rate-bound-value" id="minRate">$0</p>
+                            <p class="rate-bound-value" id="minRate">₹0</p>
                         </div>
                         <div class="rate-main-value">
                             <p class="rate-main-label">Recommended</p>
-                            <p id="recommendedRate">$0</p>
+                            <p id="recommendedRate">₹0</p>
                         </div>
                         <div class="rate-bound">
                             <p class="rate-bound-label">Max</p>
-                            <p class="rate-bound-value" id="maxRate">$0</p>
+                            <p class="rate-bound-value" id="maxRate">₹0</p>
                         </div>
                     </div>
 
@@ -136,34 +136,35 @@
 
                 <div class="sidebar-card" style="margin-top:1.25rem;">
                     <h3 style="font-size:0.95rem;margin-bottom:1rem;color:var(--text-secondary);">Industry Benchmarks</h3>
-                    <div class="benchmark-item"><span class="bench-tier">Nano</span><span class="bench-range">1K–10K followers</span><span class="bench-rate">$50–$200</span></div>
-                    <div class="benchmark-item"><span class="bench-tier">Micro</span><span class="bench-range">10K–100K</span><span class="bench-rate">$200–$2K</span></div>
-                    <div class="benchmark-item"><span class="bench-tier">Mid</span><span class="bench-range">100K–500K</span><span class="bench-rate">$2K–$10K</span></div>
-                    <div class="benchmark-item"><span class="bench-tier">Macro</span><span class="bench-range">500K–1M</span><span class="bench-rate">$10K–$30K</span></div>
-                    <div class="benchmark-item"><span class="bench-tier">Mega</span><span class="bench-range">1M+</span><span class="bench-rate">$30K+</span></div>
+                    <div class="benchmark-item"><span class="bench-tier">Nano</span><span class="bench-range">1K–10K followers</span><span class="bench-rate">₹4K–₹17K</span></div>
+                    <div class="benchmark-item"><span class="bench-tier">Micro</span><span class="bench-range">10K–100K</span><span class="bench-rate">₹17K–₹1.66L</span></div>
+                    <div class="benchmark-item"><span class="bench-tier">Mid</span><span class="bench-range">100K–500K</span><span class="bench-rate">₹1.66L–₹8.3L</span></div>
+                    <div class="benchmark-item"><span class="bench-tier">Macro</span><span class="bench-range">500K–1M</span><span class="bench-rate">₹8.3L–₹24.9L</span></div>
+                    <div class="benchmark-item"><span class="bench-tier">Mega</span><span class="bench-range">1M+</span><span class="bench-rate">₹24.9L+</span></div>
                 </div>
             </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js"></script>
+    <script src="js/config.js"></script>
     <script>
-        const SUPABASE_URL = 'https://rbqphouxghbiynlqanmp.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJicXBob3V4Z2hiaXlubHFhbm1wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2NTAzNzIsImV4cCI6MjA3NjIyNjM3Mn0.VWSTqtXNy-twpJWk1VJqWRLfomKex8maiSf6wVuFlLM';
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const supabaseClient = window.ReachIQ.createSupabaseClient();
 
         async function init() {
             try {
-                const { data: { session } } = await supabase.auth.getSession();
-                if (!session) return window.location.href = '/';
+                const auth = await window.ReachIQ.requireRole(supabaseClient, 'influencer');
+                if (!auth) return;
+
+                const { data: { session } } = await supabaseClient.auth.getSession();
                 const response = await fetch('/api/influencer/calculate-rate', { headers: { 'Authorization': `Bearer ${session.access_token}` } });
                 const result = await response.json();
                 document.getElementById('loadingState').style.display = 'none';
                 if (result.status === 'success') {
                     document.getElementById('resultState').style.display = 'block';
-                    document.getElementById('minRate').textContent = '$' + result.data.min_rate.toLocaleString();
-                    document.getElementById('recommendedRate').textContent = '$' + result.data.recommended_rate.toLocaleString();
-                    document.getElementById('maxRate').textContent = '$' + result.data.max_rate.toLocaleString();
+                    document.getElementById('minRate').textContent = window.ReachIQ.formatInr(result.data.min_rate || 0);
+                    document.getElementById('recommendedRate').textContent = window.ReachIQ.formatInr(result.data.recommended_rate || 0);
+                    document.getElementById('maxRate').textContent = window.ReachIQ.formatInr(result.data.max_rate || 0);
                     document.getElementById('aiExplanationText').textContent = result.data.explanation;
                 } else throw new Error(result.error);
             } catch (error) {
@@ -173,7 +174,7 @@
             }
         }
 
-        async function logout() { await supabase.auth.signOut(); window.location.href = '/'; }
+        async function logout() { await supabaseClient.auth.signOut(); window.location.href = '/'; }
         document.addEventListener('DOMContentLoaded', init);
     </script>
 

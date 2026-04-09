@@ -11,6 +11,7 @@
         <div class="nav-brand">✦ ReachIQ</div>
         <div class="nav-links">
             <a href="influencer-dashboard.html">Dashboard</a>
+            <a href="influencer-offers.html">Offers</a>
             <a href="influencer-profile.html" class="active">Profile</a>
             <button onclick="logout()" class="btn-logout">Sign Out</button>
         </div>
@@ -96,7 +97,7 @@
                     <div class="form-group">
                         <label style="color: var(--gold);">Calculated Market Rate (Per Video)</label>
                         <div class="rate-display-box" id="rateDisplayBox">
-                            <span id="calculatedRate">$0 - $0</span>
+                            <span id="calculatedRate">₹0 - ₹0</span>
                         </div>
                         <small style="color:var(--text-muted);font-size:0.75rem;margin-top:0.3rem; display:block;">
                             🔒 Non-editable. This is dynamically calculated by our AI based on your verified engagement, average views, and selected niche.
@@ -110,6 +111,10 @@
                     <div class="form-group">
                         <label>Content Description</label>
                         <input type="text" id="contentDescription" placeholder="e.g., Tech reviews, unboxings, tutorials — always honest">
+                    </div>
+                    <div class="form-group">
+                        <label>Sample Transcript / Hook Style</label>
+                        <textarea id="sampleTranscript" rows="3" placeholder="Paste a short excerpt from your typical intro, promo read, or video transcript so AI can better match you to campaigns."></textarea>
                     </div>
                 </div>
 
@@ -194,18 +199,20 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/notifications.js"></script>
+    <script src="js/profile-menu.js"></script>
     <script>
-        const SUPABASE_URL = 'https://rbqphouxghbiynlqanmp.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJicXBob3V4Z2hiaXlubHFhbm1wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2NTAzNzIsImV4cCI6MjA3NjIyNjM3Mn0.VWSTqtXNy-twpJWk1VJqWRLfomKex8maiSf6wVuFlLM';
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const supabaseClient = window.ReachIQ.createSupabaseClient();
 
         let rawMetrics = { views: 0, videos: 0, engagement: 0 };
         let finalCalculatedRate = "";
         let initialFormState = {};
 
         async function init() {
-            const { data: { user } } = await supabaseClient.auth.getUser();
-            if (!user) return window.location.href = '/';
+            const auth = await window.ReachIQ.requireRole(supabaseClient, 'influencer');
+            if (!auth) return;
+            const user = auth.user;
 
             const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', user.id).single();
             const { data: infProfile } = await supabaseClient.from('influencer_profiles').select('*').eq('profile_id', user.id).single();
@@ -217,6 +224,7 @@
                 document.getElementById('niche').value = infProfile.niche || 'lifestyle';
                 document.getElementById('bio').value = infProfile.bio || '';
                 document.getElementById('contentDescription').value = infProfile.content_description || '';
+                document.getElementById('sampleTranscript').value = infProfile.sample_video_transcript || '';
                 document.getElementById('location').value = infProfile.location || '';
                 document.getElementById('languages').value = (infProfile.languages || []).join(', '); 
                 
@@ -276,7 +284,7 @@
             const minRate = Math.round(recommendedRate * 0.8);
             const maxRate = Math.round(recommendedRate * 1.5);
             
-            finalCalculatedRate = `$${minRate} - $${maxRate}`;
+            finalCalculatedRate = `${window.ReachIQ.formatInr(minRate * window.ReachIQ.legacyUsdToInr)} - ${window.ReachIQ.formatInr(maxRate * window.ReachIQ.legacyUsdToInr)}`;
             document.getElementById('calculatedRate').textContent = finalCalculatedRate;
         }
 
@@ -286,6 +294,7 @@
                 niche: document.getElementById('niche').value,
                 bio: document.getElementById('bio').value,
                 contentDescription: document.getElementById('contentDescription').value,
+                sampleTranscript: document.getElementById('sampleTranscript').value,
                 location: document.getElementById('location').value,
                 languages: document.getElementById('languages').value,
                 audienceAge: document.getElementById('audienceAge').value,
@@ -307,6 +316,7 @@
                 niche: document.getElementById('niche').value,
                 bio: document.getElementById('bio').value,
                 contentDescription: document.getElementById('contentDescription').value,
+                sampleTranscript: document.getElementById('sampleTranscript').value,
                 location: document.getElementById('location').value,
                 languages: document.getElementById('languages').value,
                 audienceAge: document.getElementById('audienceAge').value,
@@ -327,49 +337,63 @@
         document.getElementById('profileForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('saveBtn');
+            const originalHtml = btn.innerHTML;
             btn.innerHTML = 'Saving...';
             btn.disabled = true;
 
-            const { data: { user } } = await supabaseClient.auth.getUser();
-            
-            await supabaseClient.from('profiles').update({ 
-                full_name: document.getElementById('fullName').value 
-            }).eq('id', user.id);
-            
-            // Format languages back to an array cleanly
             const languagesArray = document.getElementById('languages').value
                 .split(',')
                 .map(lang => lang.trim())
                 .filter(lang => lang !== '');
 
-            await supabaseClient.from('influencer_profiles').update({
-                niche: document.getElementById('niche').value,
-                bio: document.getElementById('bio').value,
-                content_description: document.getElementById('contentDescription').value,
-                location: document.getElementById('location').value,
-                languages: languagesArray,
-                audience_age: document.getElementById('audienceAge').value,
-                audience_gender: document.getElementById('audienceGender').value,
-                audience_interests: document.getElementById('audienceInterests').value,
-                audience_location: document.getElementById('audienceLocation').value,
-                instagram_handle: document.getElementById('instagramHandle').value,
-                tiktok_handle: document.getElementById('tiktokHandle').value,
-                twitter_handle: document.getElementById('twitterHandle').value,
-                website_url: document.getElementById('websiteUrl').value,
-                availability: document.getElementById('availability').value,
-                rate_range: finalCalculatedRate
-            }).eq('profile_id', user.id);
-            
-            btn.innerHTML = '✅ Saved!';
-            btn.style.background = 'linear-gradient(135deg, var(--teal), #2ec9ad)';
-            
-            captureInitialState();
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session) throw new Error('No session found. Please log in again.');
 
-            setTimeout(() => { 
-                btn.innerHTML = '<span>✦</span> Save Profile'; 
-                btn.style.background = ''; 
-                btn.disabled = true;
-            }, 2500);
+                const response = await fetch(window.ReachIQ.apiUrl('/influencer/profile'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${session.access_token}`
+                    },
+                    body: JSON.stringify({
+                        full_name: document.getElementById('fullName').value,
+                        niche: document.getElementById('niche').value,
+                        bio: document.getElementById('bio').value,
+                        content_description: document.getElementById('contentDescription').value,
+                        sample_video_transcript: document.getElementById('sampleTranscript').value,
+                        location: document.getElementById('location').value,
+                        languages: languagesArray,
+                        audience_age: document.getElementById('audienceAge').value,
+                        audience_gender: document.getElementById('audienceGender').value,
+                        audience_interests: document.getElementById('audienceInterests').value,
+                        audience_location: document.getElementById('audienceLocation').value,
+                        instagram_handle: document.getElementById('instagramHandle').value,
+                        tiktok_handle: document.getElementById('tiktokHandle').value,
+                        twitter_handle: document.getElementById('twitterHandle').value,
+                        website_url: document.getElementById('websiteUrl').value,
+                        availability: document.getElementById('availability').value,
+                        rate_range: finalCalculatedRate
+                    })
+                });
+                const payload = await window.ReachIQ.parseJsonResponse(response);
+                if (!response.ok) throw new Error(payload.error || 'Failed to save profile');
+
+                btn.innerHTML = 'Saved!';
+                btn.style.background = 'linear-gradient(135deg, var(--teal), #2ec9ad)';
+                captureInitialState();
+
+                setTimeout(() => {
+                    btn.innerHTML = originalHtml;
+                    btn.style.background = '';
+                    btn.disabled = true;
+                }, 2500);
+            } catch (error) {
+                alert('Error saving profile: ' + error.message);
+                btn.innerHTML = originalHtml;
+                btn.style.background = '';
+                btn.disabled = false;
+            }
         });
 
         async function logout() { await supabaseClient.auth.signOut(); window.location.href = '/'; }

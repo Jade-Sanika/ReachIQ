@@ -49,7 +49,7 @@
                 <div class="stat-icon-wrap" style="background:rgba(212,168,83,0.12); border:1px solid rgba(212,168,83,0.2);">💸</div>
                 <div class="stat-content">
                     <p class="stat-label">Total Earnings</p>
-                    <p class="stat-number" id="totalEarnings">$0</p>
+                    <p class="stat-number" id="totalEarnings">₹0</p>
                 </div>
             </div>
             <div class="stat-card">
@@ -97,6 +97,19 @@
                 <p>Complete your profile to get more brand offers</p>
             </div>
             <a href="influencer-profile.html" class="btn-primary" style="margin-top:1.25rem;">Complete Profile</a>
+        </div>
+
+        <div class="recent-section">
+            <div class="section-header">
+                <h2>AI Strategy Coach</h2>
+                <button class="btn-secondary" onclick="loadStrategyCoach()">Refresh Insights</button>
+            </div>
+            <div id="strategyCoachSection" class="tips-grid">
+                <div class="empty-state">
+                    <div class="loading-spinner"></div>
+                    <p>Building your strategy insights...</p>
+                </div>
+            </div>
         </div>
 
         <div class="recent-section">
@@ -156,21 +169,17 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/notifications.js"></script>
+    <script src="js/profile-menu.js"></script>
     <script>
-        const SUPABASE_URL = 'https://rbqphouxghbiynlqanmp.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJicXBob3V4Z2hiaXlubHFhbm1wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2NTAzNzIsImV4cCI6MjA3NjIyNjM3Mn0.VWSTqtXNy-twpJWk1VJqWRLfomKex8maiSf6wVuFlLM';
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const supabaseClient = window.ReachIQ.createSupabaseClient();
 
         // Global array to store offers so the modal can access them
         let dashboardOffers = [];
 
         async function checkAuth() {
-            const { data: { user } } = await supabaseClient.auth.getUser();
-            if (!user) { window.location.href = '/'; return null; }
-            const { data: profile, error } = await supabaseClient.from('profiles').select('role').eq('id', user.id).single();
-            if (error) { console.error('Error fetching profile:', error); return null; }
-            if (profile.role !== 'influencer') { window.location.href = '/brand-dashboard.html'; return null; }
-            return user;
+            return await window.ReachIQ.requireRole(supabaseClient, 'influencer');
         }
 
         async function logout() { await supabaseClient.auth.signOut(); window.location.href = '/'; }
@@ -205,7 +214,8 @@
         }
 
         async function loadDashboardData() {
-            const user = await checkAuth();
+            const auth = await checkAuth();
+            const user = auth?.user;
             if (!user) return;
             const isProfileComplete = await checkProfileCompletion(user.id);
             if (isProfileComplete) {
@@ -213,66 +223,27 @@
             } else {
                 await loadInfluencerProfile(user.id);
             }
+            await loadStrategyCoach();
         }
 
         async function loadInfluencerOffers(userId) {
             try {
-                console.log("1. Fetching offers for Influencer ID:", userId);
-                
-                // Fetch basic offers first
-                const { data: offersData, error: offersError } = await supabaseClient
-                    .from('offers')
-                    .select('*')
-                    .eq('influencer_id', userId)
-                    .order('created_at', { ascending: false })
-                    .limit(10);
-                
-                if (offersError) throw offersError;
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session) throw new Error('No session found');
+
+                const response = await fetch('/api/influencer/offers', {
+                    headers: { 'Authorization': `Bearer ${session.access_token}` }
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || 'Failed to load offers');
+
+                const offersData = (payload.offers || []).slice(0, 10);
                 
                 if (!offersData || offersData.length === 0) {
                     document.getElementById('recentOffers').innerHTML = `<div class="empty-state"><div style="font-size:2.5rem;margin-bottom:1rem">🎉</div><h3>Profile live! Awaiting offers</h3><p>Your profile is complete and visible to brands. Check back soon.</p></div>`;
                     return;
                 }
 
-                console.log("2. Raw Offers Found:", offersData);
-
-                // Manual loop to bypass complex join restrictions and identify RLS blocks
-                for(let offer of offersData) {
-                    offer.campaigns = {};
-                    offer.brand_name = 'Unknown Brand';
-
-                    if (offer.campaign_id) {
-                        // Fetch the Campaign
-                        const { data: campData, error: campError } = await supabaseClient
-                            .from('campaigns')
-                            .select('*')
-                            .eq('id', offer.campaign_id)
-                            .single();
-                        
-                        if (campError) {
-                            console.error(`🚨 RLS BLOCK: Cannot read Campaign ${offer.campaign_id}. Check Supabase RLS Policies!`, campError);
-                        } else if (campData) {
-                            offer.campaigns = campData;
-                            
-                            // Fetch the Brand Profile
-                            if (campData.brand_id) {
-                                const { data: profileData, error: profError } = await supabaseClient
-                                    .from('profiles')
-                                    .select('full_name')
-                                    .eq('id', campData.brand_id)
-                                    .single();
-                                
-                                if (profError) {
-                                    console.error(`🚨 RLS BLOCK: Cannot read Brand Profile ${campData.brand_id}.`, profError);
-                                } else if (profileData) {
-                                    offer.brand_name = profileData.full_name || 'Brand Partner';
-                                }
-                            }
-                        }
-                    }
-                }
-
-                console.log("3. Final Data ready for UI:", offersData);
                 dashboardOffers = offersData; // Save for modal
 
                 const offersList = document.getElementById('recentOffers');
@@ -293,12 +264,13 @@
                             <div class="offer-details">
                                 <span class="offer-tag">💰 ${offer.brand_budget_range || campaign.budget_range || 'Negotiable'}</span>
                                 ${campaign.target_audience ? `<span class="offer-tag">👥 ${campaign.target_audience}</span>` : ''}
+                                ${offer.payment_status ? `<span class="offer-tag">🔒 ${(offer.payment_status || 'escrow_pending').replace(/_/g, ' ')}</span>` : ''}
                             </div>
                         </div>
                         <div class="offer-meta">
                             <div class="offer-date">${dateDisplay}</div>
-                            ${offer.influencer_quote ? `<div class="offer-quote">Your Quote: $${offer.influencer_quote}</div>` : ''}
-                            ${offer.negotiated_amount ? `<div class="offer-negotiated">Agreed: $${offer.negotiated_amount}</div>` : ''}
+                            ${offer.influencer_quote ? `<div class="offer-quote">Your Quote: ${window.ReachIQ.formatInr(offer.influencer_quote)}</div>` : ''}
+                            ${offer.negotiated_amount ? `<div class="offer-negotiated">Agreed: ${window.ReachIQ.formatInr(offer.negotiated_amount)}</div>` : ''}
                         </div>
                         <div class="offer-actions">
                             <button onclick="viewOfferDetails('${offer.id}')" class="btn-secondary">Details</button>
@@ -335,19 +307,73 @@
 
         async function updateStats(userId) {
             try {
-                const { count: newOffers } = await supabaseClient.from('offers').select('*', {count:'exact',head:true}).eq('influencer_id', userId).eq('status', 'pending');
-                const { count: activeDeals } = await supabaseClient.from('offers').select('*', {count:'exact',head:true}).eq('influencer_id', userId).in('status', ['accepted','negotiating']);
-                const { data: earningsData } = await supabaseClient.from('offers').select('negotiated_amount').eq('influencer_id', userId).eq('status', 'accepted');
-                const totalEarnings = earningsData?.reduce((sum, offer) => sum + (offer.negotiated_amount || 0), 0) || 0;
-                const { data: allOffers } = await supabaseClient.from('offers').select('status').eq('influencer_id', userId);
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session) throw new Error('No session found');
+
+                const response = await fetch('/api/influencer/offers', {
+                    headers: { 'Authorization': `Bearer ${session.access_token}` }
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || 'Failed to load offer stats');
+
+                const allOffers = payload.offers || [];
+                const newOffers = allOffers.filter(offer => offer.status === 'pending').length;
+                const activeDeals = allOffers.filter(offer => ['accepted', 'negotiating'].includes(offer.status)).length;
+                const totalEarnings = allOffers
+                    .filter(offer => offer.status === 'accepted')
+                    .reduce((sum, offer) => sum + Number(offer.negotiated_amount || 0), 0);
                 const respondedOffers = allOffers?.filter(offer => ['negotiating','accepted','rejected'].includes(offer.status)).length || 0;
                 const totalReceived = allOffers?.length || 0;
                 const responseRate = totalReceived > 0 ? Math.round((respondedOffers / totalReceived) * 100) : 0;
                 document.getElementById('newOffers').textContent = newOffers || 0;
                 document.getElementById('activeDeals').textContent = activeDeals || 0;
-                document.getElementById('totalEarnings').textContent = '$' + totalEarnings;
+                document.getElementById('totalEarnings').textContent = window.ReachIQ.formatInr(totalEarnings || 0);
                 document.getElementById('responseRate').textContent = responseRate + '%';
             } catch (error) { console.error('Error updating stats:', error); }
+        }
+
+        function renderStrategyCoach(strategy) {
+            const container = document.getElementById('strategyCoachSection');
+            container.innerHTML = `
+                <div class="tip-card">
+                    <div class="tip-icon">🎯</div>
+                    <h4>Niche Positioning</h4>
+                    <p>${strategy.niche_positioning || 'Refine your creator positioning to make your value clearer to brands.'}</p>
+                </div>
+                <div class="tip-card">
+                    <div class="tip-icon">🤝</div>
+                    <h4>Sponsor Fit</h4>
+                    <p>${(strategy.sponsor_fit || []).join(', ') || 'No sponsor-fit categories returned yet.'}</p>
+                </div>
+                <div class="tip-card">
+                    <div class="tip-icon">📈</div>
+                    <h4>Content Gaps</h4>
+                    <p>${(strategy.content_gaps || []).join(' • ') || 'No major content gaps flagged.'}</p>
+                </div>
+                <div class="tip-card">
+                    <div class="tip-icon">💸</div>
+                    <h4>Pricing Improvements</h4>
+                    <p>${(strategy.pricing_improvements || []).join(' • ') || 'Keep pricing anchored on engagement and audience fit.'}</p>
+                </div>`;
+        }
+
+        async function loadStrategyCoach() {
+            const container = document.getElementById('strategyCoachSection');
+            container.innerHTML = `<div class="empty-state"><div class="loading-spinner"></div><p>Building your strategy insights...</p></div>`;
+
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session) throw new Error('No session found');
+
+                const response = await fetch('/api/influencer/strategy-coach', {
+                    headers: { 'Authorization': `Bearer ${session.access_token}` }
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || 'Failed to load strategy coach');
+                renderStrategyCoach(payload.strategy || {});
+            } catch (error) {
+                container.innerHTML = `<div class="empty-state"><h3>Strategy coach unavailable</h3><p>${error.message}</p></div>`;
+            }
         }
 
         // --- NEW: Modal Logic ---

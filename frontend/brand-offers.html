@@ -11,7 +11,7 @@
         <div class="nav-brand">✦ ReachIQ</div>
         <div class="nav-links">
             <a href="brand-dashboard.html">Dashboard</a>
-            <a href="create-campaign.html">Campaigns</a>
+            <a href="brand-campaigns.html">Campaigns</a>
             <a href="creator-discovery.html">Discover</a>
             <a href="brand-offers.html" class="active">Offers</a>
             <a href="video-tracker.html">Tracker</a>
@@ -46,27 +46,75 @@
         </div>
     </div>
 
+    <div id="offerManageModal" class="modal-overlay">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeOfferModal()">&times;</span>
+            <h2 id="modalOfferTitle">Manage Offer</h2>
+            <p id="modalOfferSubtitle" style="color:var(--text-muted);margin-top:0.35rem;"></p>
+
+            <div class="modal-section">
+                <h3>Negotiation</h3>
+                <div class="form-group">
+                    <label for="modalOfferStatusSelect">Status</label>
+                    <select id="modalOfferStatusSelect">
+                        <option value="pending">Pending</option>
+                        <option value="negotiating">Negotiating</option>
+                        <option value="accepted">Accepted</option>
+                        <option value="rejected">Rejected</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="modalOfferAmount">Negotiated Amount (INR)</label>
+                    <input type="number" id="modalOfferAmount" min="0" step="1" placeholder="e.g. 1200">
+                </div>
+                <div class="form-group">
+                    <label for="modalOfferNotes">Brand Notes</label>
+                    <textarea id="modalOfferNotes" rows="4" placeholder="Add negotiation notes or next steps"></textarea>
+                </div>
+            </div>
+
+            <div class="modal-section">
+                <h3>Offer Details</h3>
+                <p id="modalOfferDetails" style="white-space:pre-line;"></p>
+            </div>
+
+            <div id="modalNegotiationAdvice" class="modal-section" style="display:none;">
+                <h3>AI Negotiation Guidance</h3>
+                <p id="modalAdviceSummary" style="white-space:pre-line;"></p>
+            </div>
+
+            <div style="margin-top:2rem;display:flex;gap:1rem;justify-content:flex-end;flex-wrap:wrap;">
+                <button class="btn-secondary" onclick="closeOfferModal()">Close</button>
+                <button class="btn-secondary" id="aiAdviceBtn" onclick="loadNegotiationAdvice()">AI Suggestion</button>
+                <button class="btn-primary" id="saveOfferBtn" onclick="saveOfferChanges()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/notifications.js"></script>
+    <script src="js/profile-menu.js"></script>
     <script>
-        const SUPABASE_URL = 'https://rbqphouxghbiynlqanmp.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJicXBob3V4Z2hiaXlubHFhbm1wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2NTAzNzIsImV4cCI6MjA3NjIyNjM3Mn0.VWSTqtXNy-twpJWk1VJqWRLfomKex8maiSf6wVuFlLM';
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const supabaseClient = window.ReachIQ.createSupabaseClient();
         let allOffers = [];
         let currentFilter = 'all';
+        let selectedOfferId = null;
 
         async function init() {
             try {
+                const auth = await window.ReachIQ.requireRole(supabaseClient, 'brand');
+                if (!auth) return;
+
                 const { data: { session } } = await supabaseClient.auth.getSession();
-                if (!session) return window.location.href = '/';
-                const { data, error } = await supabaseClient
-                    .from('offers')
-                    .select(`*, campaigns!inner ( brand_id, name, budget_range ), influencer:profiles!offers_influencer_id_fkey ( full_name, username )`)
-                    .eq('campaigns.brand_id', session.user.id)
-                    .order('id', { ascending: false });
-                if (error) throw error;
-                allOffers = data || [];
+                const response = await fetch('/api/brand/offers', {
+                    headers: { 'Authorization': `Bearer ${session.access_token}` }
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || 'Failed to load offers');
+                allOffers = payload.offers || [];
                 updateCounts();
-                renderOffers('all');
+                applyNotificationContext();
             } catch (err) {
                 console.error("Error:", err);
                 document.getElementById('offersContainer').innerHTML = `<div style="text-align:center;padding:3rem;color:var(--danger);">Error loading offers. Please try again.</div>`;
@@ -84,9 +132,35 @@
 
         function filterOffers(status, event) {
             currentFilter = status;
-            document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
-            if (event) event.currentTarget.classList.add('active');
+            activateFilterTab(status, event?.currentTarget);
             renderOffers(status);
+        }
+
+        function activateFilterTab(status, activeButton = null) {
+            document.querySelectorAll('.filter-tab').forEach(button => {
+                const handler = button.getAttribute('onclick') || '';
+                button.classList.toggle('active', activeButton ? button === activeButton : handler.includes(`'${status}'`));
+            });
+        }
+
+        function applyNotificationContext() {
+            const params = new URLSearchParams(window.location.search);
+            const requestedFilter = params.get('filter');
+            const nextFilter = ['all', 'pending', 'negotiating', 'accepted', 'rejected'].includes(requestedFilter) ? requestedFilter : 'all';
+            currentFilter = nextFilter;
+            activateFilterTab(nextFilter);
+            renderOffers(nextFilter);
+
+            const offerId = params.get('offerId');
+            if (!offerId) return;
+
+            const offer = allOffers.find(item => item.id === offerId);
+            if (!offer) return;
+
+            setTimeout(() => {
+                if (offer.status === 'pending' || offer.status === 'negotiating') manageOffer(offerId);
+                else viewDetails(offerId);
+            }, 80);
         }
 
         function renderOffers(statusFilter) {
@@ -109,8 +183,8 @@
                 const influencerHandle = offer.influencer?.username ? `@${offer.influencer.username}` : '';
                 const campaignName = offer.campaigns?.name || 'Unnamed Campaign';
                 let displayRate = offer.campaigns?.budget_range || 'Negotiable';
-                if (offer.influencer_quote) displayRate = `$${offer.influencer_quote}`;
-                if (offer.negotiated_amount) displayRate = `$${offer.negotiated_amount}`;
+                if (offer.influencer_quote) displayRate = window.ReachIQ.formatInr(offer.influencer_quote);
+                if (offer.negotiated_amount) displayRate = window.ReachIQ.formatInr(offer.negotiated_amount);
                 const isAgreed = !!offer.negotiated_amount;
                 const dateSent = offer.created_at ? new Date(offer.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) : 'Recently';
                 const initials = influencerName.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
@@ -123,6 +197,7 @@
                             <p class="brand-offer-creator">${influencerName} <span>${influencerHandle}</span></p>
                             <p class="brand-offer-campaign">Campaign: <strong>${campaignName}</strong></p>
                             <p class="brand-offer-date">Sent ${dateSent}</p>
+                            <p class="brand-offer-date">Negotiation: ${offer.negotiation_summary?.headline || 'No negotiation summary yet.'}</p>
                         </div>
                     </div>
                     <div class="brand-offer-rate">
@@ -141,9 +216,132 @@
             }).join('');
         }
 
-        function manageOffer(id) { alert(`Opening negotiation module for Offer ID: ${id}.`); }
-        function viewDetails(id) { alert(`Viewing contract/details for Offer ID: ${id}`); }
+        function manageOffer(id) {
+            const offer = allOffers.find(item => item.id === id);
+            if (!offer) return;
+
+            selectedOfferId = id;
+            document.getElementById('modalOfferTitle').textContent = offer.influencer?.full_name || 'Manage Offer';
+            document.getElementById('modalOfferSubtitle').textContent = `Campaign: ${offer.campaigns?.name || 'Untitled campaign'}`;
+            document.getElementById('modalOfferStatusSelect').value = offer.status || 'pending';
+            document.getElementById('modalOfferAmount').value = offer.negotiated_amount || offer.influencer_quote || '';
+            document.getElementById('modalOfferNotes').value = offer.brand_notes || '';
+            document.getElementById('modalOfferDetails').textContent = [
+                `Budget Range: ${offer.campaigns?.budget_range || 'Negotiable'}`,
+                `Target Audience: ${offer.campaigns?.target_audience || 'General'}`,
+                `Current Status: ${offer.status || 'pending'}`,
+                `Creator Handle: ${offer.influencer?.username ? '@' + offer.influencer.username : 'Not provided'}`
+            ].join('\n');
+            document.getElementById('modalNegotiationAdvice').style.display = 'none';
+            document.getElementById('modalAdviceSummary').textContent = '';
+            document.getElementById('saveOfferBtn').style.display = 'inline-flex';
+            document.getElementById('offerManageModal').style.display = 'flex';
+        }
+
+        function viewDetails(id) {
+            manageOffer(id);
+            document.getElementById('saveOfferBtn').style.display = 'none';
+        }
+
+        async function loadNegotiationAdvice() {
+            if (!selectedOfferId) return;
+
+            const button = document.getElementById('aiAdviceBtn');
+            button.disabled = true;
+            button.textContent = 'Thinking...';
+
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session) throw new Error('Please log in again.');
+
+                const response = await fetch('/api/offers/negotiation-advice', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${session.access_token}`
+                    },
+                    body: JSON.stringify({ offer_id: selectedOfferId })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || 'Failed to load negotiation advice');
+
+                const advice = payload.advice || {};
+                if (advice.suggested_amount) {
+                    document.getElementById('modalOfferAmount').value = advice.suggested_amount;
+                }
+                if (advice.recommended_status) {
+                    document.getElementById('modalOfferStatusSelect').value = advice.recommended_status;
+                }
+                if (advice.draft_message) {
+                    document.getElementById('modalOfferNotes').value = advice.draft_message;
+                }
+
+                document.getElementById('modalAdviceSummary').textContent = [
+                    `Strategy: ${advice.strategy || 'No strategy returned.'}`,
+                    `Guardrails: ${window.ReachIQ.formatInr(advice.guardrails?.minimum || 0)} to ${window.ReachIQ.formatInr(advice.guardrails?.maximum || 0)}`,
+                    `Acceptance Rate: ${advice.historical_context?.acceptance_rate || 0}%`,
+                    '',
+                    advice.draft_message || ''
+                ].join('\n');
+                document.getElementById('modalNegotiationAdvice').style.display = 'block';
+            } catch (error) {
+                alert(error.message);
+            } finally {
+                button.disabled = false;
+                button.textContent = 'AI Suggestion';
+            }
+        }
+
+        function closeOfferModal() {
+            selectedOfferId = null;
+            document.getElementById('offerManageModal').style.display = 'none';
+            document.getElementById('modalNegotiationAdvice').style.display = 'none';
+        }
+
+        async function saveOfferChanges() {
+            if (!selectedOfferId) return;
+
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) return window.location.href = '/';
+
+            const saveBtn = document.getElementById('saveOfferBtn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+
+            try {
+                const response = await fetch('/api/offers/update-status', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${session.access_token}`
+                    },
+                    body: JSON.stringify({
+                        offer_id: selectedOfferId,
+                        status: document.getElementById('modalOfferStatusSelect').value,
+                        negotiated_amount: document.getElementById('modalOfferAmount').value || null,
+                        brand_notes: document.getElementById('modalOfferNotes').value
+                    })
+                });
+
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || 'Failed to update offer');
+
+                closeOfferModal();
+                await init();
+            } catch (error) {
+                alert(error.message);
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save Changes';
+            }
+        }
+
         async function logout() { await supabaseClient.auth.signOut(); window.location.href = '/'; }
+        window.addEventListener('click', (event) => {
+            if (event.target.id === 'offerManageModal') {
+                closeOfferModal();
+            }
+        });
         document.addEventListener('DOMContentLoaded', init);
     </script>
 
@@ -198,6 +396,21 @@
         .rate-value { font-family: 'Playfair Display', serif; font-size: 1.25rem; font-weight: 700; }
 
         .brand-offer-right { display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem; min-width: 120px; }
+
+        .modal-overlay {
+            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+            z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(5px);
+        }
+        .modal-content {
+            background: var(--navy); border: 1px solid var(--glass-border); border-radius: var(--radius-lg);
+            padding: 2rem; max-width: 620px; width: 92%; position: relative; max-height: 90vh; overflow-y: auto;
+        }
+        .modal-close {
+            position: absolute; top: 1rem; right: 1rem; font-size: 2rem; color: var(--text-muted);
+            cursor: pointer; line-height: 1;
+        }
+        .modal-section { margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-subtle); }
+        .modal-section h3 { margin-top: 0; margin-bottom: 0.75rem; font-size: 0.9rem; color: var(--gold); }
     </style>
 </body>
 </html>

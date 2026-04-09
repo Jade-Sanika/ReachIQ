@@ -109,7 +109,7 @@
         <div class="nav-links">
             <a href="influencer-dashboard.html">Dashboard</a>
             <a href="influencer-offers.html">Offers</a>
-            <a href="influencer-profile.html">Profile</a>
+            <a href="influencer-profile.html" class="active">Profile</a>
             <button onclick="logout()" class="btn-logout">Sign Out</button>
         </div>
     </nav>
@@ -138,17 +138,15 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js"></script>
+    <script src="js/config.js"></script>
     <script>
-        const SUPABASE_URL = 'https://rbqphouxghbiynlqanmp.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJicXBob3V4Z2hiaXlubHFhbm1wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2NTAzNzIsImV4cCI6MjA3NjIyNjM3Mn0.VWSTqtXNy-twpJWk1VJqWRLfomKex8maiSf6wVuFlLM';
-        
-        // Changed to supabaseClient to match other files and prevent bugs
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const supabaseClient = window.ReachIQ.createSupabaseClient();
         let userNiche = '';
 
         async function init() {
-            const { data: { user } } = await supabaseClient.auth.getUser();
-            if (!user) return window.location.href = '/';
+            const auth = await window.ReachIQ.requireRole(supabaseClient, 'influencer');
+            if (!auth) return;
+            const user = auth.user;
 
             // Load current bio
             const { data } = await supabaseClient.from('influencer_profiles').select('bio, niche').eq('profile_id', user.id).single();

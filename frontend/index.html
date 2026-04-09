@@ -115,6 +115,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js"></script>
+    <script src="js/config.js"></script>
     <script>
         function switchTab(tab) {
             document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', (tab==='login'&&i===0)||(tab==='signup'&&i===1)));
@@ -140,9 +141,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            const SUPABASE_URL = 'https://rbqphouxghbiynlqanmp.supabase.co';
-            const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJicXBob3V4Z2hiaXlubHFhbm1wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2NTAzNzIsImV4cCI6MjA3NjIyNjM3Mn0.VWSTqtXNy-twpJWk1VJqWRLfomKex8maiSf6wVuFlLM';
-            window.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            window.supabaseClient = window.ReachIQ.createSupabaseClient();
 
             document.getElementById('signupRole').addEventListener('change', function(e) {
                 const ytGroup = document.getElementById('youtubeHandleGroup');
@@ -165,14 +164,14 @@
         async function handleSignUp(email, password, fullName, role) {
             try {
                 showLoading(true, 'Creating your account...');
-                const { data: authData, error: authError } = await window.supabase.auth.signUp({ email, password, options: { data: { full_name: fullName, role: role } } });
+                const { data: authData, error: authError } = await window.supabaseClient.auth.signUp({ email, password, options: { data: { full_name: fullName, role: role } } });
                 if (authError) throw authError;
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 
                 if (role === 'influencer') {
                     showLoading(true, '🤖 AI is analyzing your YouTube channel...');
                     const youtubeHandle = document.getElementById('youtubeHandle').value;
-                    const { data: { session } } = await window.supabase.auth.getSession();
+                    const { data: { session } } = await window.supabaseClient.auth.getSession();
                     await fetch('/api/influencer/sync-youtube', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` }, body: JSON.stringify({ youtube_handle: youtubeHandle }) });
                 }
                 showLoading(false);
@@ -186,10 +185,10 @@
 
         async function handleLogin(email, password) {
             try {
-                const { data, error } = await window.supabase.auth.signInWithPassword({ email, password });
+                const { data, error } = await window.supabaseClient.auth.signInWithPassword({ email, password });
                 if (error) throw error;
                 
-                const { data: profile } = await window.supabase.from('profiles').select('role').eq('id', data.user.id).single();
+                const { data: profile } = await window.supabaseClient.from('profiles').select('role').eq('id', data.user.id).single();
                 
                 window.location.href = profile.role === 'brand' ? '/brand-dashboard.html' : '/influencer-dashboard.html';
                 

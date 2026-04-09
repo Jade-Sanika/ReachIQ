@@ -11,7 +11,7 @@
         <div class="nav-brand">✦ ReachIQ</div>
         <div class="nav-links">
             <a href="brand-dashboard.html" class="active">Dashboard</a>
-            <a href="create-campaign.html">Campaigns</a>
+            <a href="brand-campaigns.html">Campaigns</a>
             <a href="creator-discovery.html">Discover</a>
             <a href="brand-offers.html">Offers</a>
             <a href="video-tracker.html">Tracker</a>
@@ -55,7 +55,7 @@
                 <div class="stat-icon-wrap" style="background:rgba(244,165,176,0.1);border:1px solid rgba(244,165,176,0.2);">💸</div>
                 <div>
                     <p class="stat-label">Total Spent</p>
-                    <p class="stat-number" id="totalSpent">$0</p>
+                    <p class="stat-number" id="totalSpent">₹0</p>
                 </div>
             </div>
         </div>
@@ -65,7 +65,7 @@
             <div class="action-buttons">
                 <a href="create-campaign.html" class="btn-primary"><span class="btn-icon">➕</span> Create Campaign</a>
                 <a href="creator-discovery.html" class="btn-secondary"><span class="btn-icon">🔍</span> Find Creators</a>
-                <a href="brand-video-tracker.html" class="btn-secondary"><span class="btn-icon">📈</span> Track ROI</a>
+                <a href="video-tracker.html" class="btn-secondary"><span class="btn-icon">📈</span> Track ROI</a>
                 <a href="brand-offers.html" class="btn-secondary"><span class="btn-icon">💬</span> View Offers</a>
             </div>
         </div>
@@ -73,7 +73,7 @@
         <div class="recent-section">
             <div class="section-header">
                 <h2>Recent Campaigns</h2>
-                <a href="create-campaign.html" class="btn-text">View All →</a>
+                <a href="brand-campaigns.html" class="btn-text">View All →</a>
             </div>
             <div id="recentCampaigns" class="campaigns-grid">
                 <div class="empty-state">
@@ -147,19 +147,19 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/notifications.js"></script>
+    <script src="js/profile-menu.js"></script>
     <script>
-        const SUPABASE_URL = 'https://rbqphouxghbiynlqanmp.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJicXBob3V4Z2hiaXlubHFhbm1wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2NTAzNzIsImV4cCI6MjA3NjIyNjM3Mn0.VWSTqtXNy-twpJWk1VJqWRLfomKex8maiSf6wVuFlLM';
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const supabaseClient = window.ReachIQ.createSupabaseClient();
 
         // Global arrays to store data for modals
         let dashboardCampaigns = [];
         let dashboardOffers = [];
 
         async function checkAuth() {
-            const { data: { user } } = await supabaseClient.auth.getUser();
-            if (!user) { window.location.href = '/'; return null; }
-            return user;
+            const auth = await window.ReachIQ.requireRole(supabaseClient, 'brand');
+            return auth?.user || null;
         }
         async function logout() { await supabaseClient.auth.signOut(); window.location.href = '/'; }
 
@@ -180,7 +180,7 @@
                     document.getElementById('activeCampaigns').textContent = data.stats.active_campaigns;
                     document.getElementById('pendingOffers').textContent = data.stats.pending_offers;
                     document.getElementById('completedDeals').textContent = data.stats.completed_deals;
-                    document.getElementById('totalSpent').textContent = '$' + data.stats.total_spent;
+                    document.getElementById('totalSpent').textContent = window.ReachIQ.formatInr(data.stats.total_spent || 0);
                 } else throw new Error(data.error || 'Failed to load stats');
             } catch (error) { console.error('Error loading stats:', error); updateStatsFromLocalData(); }
         }
@@ -206,11 +206,13 @@
                         <p class="campaign-description">${campaign.brief_text ? campaign.brief_text.substring(0, 110) + '...' : 'No description'}</p>
                         <div class="campaign-meta">
                             <span>📅 ${new Date(campaign.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</span>
-                            ${campaign.budget_range ? `<span>💰 ${campaign.budget_range}</span>` : ''}
+                            ${campaign.budget_range ? `<span>💰 ${window.ReachIQ.displayMoney(campaign.budget_range)}</span>` : ''}
                         </div>
                         <div class="campaign-actions">
                             <button onclick="viewCampaign('${campaign.id}')" class="btn-secondary">View</button>
-                            <button onclick="findMatchingInfluencers('${campaign.id}')" class="btn-primary">Find Creators</button>
+                            ${campaign.status === 'completed'
+                                ? `<button onclick="window.location.href='brand-campaigns.html'" class="btn-primary">Analyze</button>`
+                                : `<button onclick="findMatchingInfluencers('${campaign.id}')" class="btn-primary">Find Creators</button>`}
                         </div>
                     </div>`).join('');
             } catch (error) {
@@ -221,8 +223,15 @@
 
         async function loadUserOffers(userId) {
             try {
-                const { data: offers, error } = await supabaseClient.from('offers').select(`*, campaigns (name, budget_range), influencer:profiles!offers_influencer_id_fkey (full_name, username)`).eq('campaigns.brand_id', userId).order('created_at', { ascending: false }).limit(5);
-                if (error) throw error;
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session) throw new Error('No session found');
+
+                const response = await fetch('/api/brand/offers', {
+                    headers: { 'Authorization': `Bearer ${session.access_token}` }
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || 'Failed to load offers');
+                const offers = (payload.offers || []).slice(0, 5);
                 
                 dashboardOffers = offers || []; // Save for modal
 
@@ -239,7 +248,7 @@
                                 <span class="offer-campaign-label">for ${offer.campaigns?.name || 'Unknown Campaign'}</span>
                             </div>
                             <div class="offer-details">
-                                ${offer.negotiated_amount ? `<span class="offer-amount">$${offer.negotiated_amount}</span>` : offer.campaigns?.budget_range ? `<span class="offer-budget">${offer.campaigns.budget_range}</span>` : ''}
+                                ${offer.negotiated_amount ? `<span class="offer-amount">${window.ReachIQ.formatInr(offer.negotiated_amount)}</span>` : offer.campaigns?.budget_range ? `<span class="offer-budget">${offer.campaigns.budget_range}</span>` : ''}
                             </div>
                         </div>
                         <div class="offer-meta">
@@ -263,7 +272,7 @@
             document.getElementById('activeCampaigns').textContent = campaignCards.length;
             document.getElementById('pendingOffers').textContent = pendingOffers.length;
             document.getElementById('completedDeals').textContent = '0';
-            document.getElementById('totalSpent').textContent = '$0';
+            document.getElementById('totalSpent').textContent = window.ReachIQ.formatInr(0);
         }
 
         function findMatchingInfluencers(campaignId) { window.location.href = `creator-discovery.html?campaign=${campaignId}`; }
@@ -278,7 +287,7 @@
             document.getElementById('modalCampStatus').textContent = campaign.status;
             document.getElementById('modalCampStatus').className = `status-badge ${campaign.status}`;
             document.getElementById('modalCampBrief').textContent = campaign.brief_text || 'No brief provided.';
-            document.getElementById('modalCampBudget').textContent = campaign.budget_range || 'Not specified';
+            document.getElementById('modalCampBudget').textContent = window.ReachIQ.displayMoney(campaign.budget_range || 'Not specified');
             document.getElementById('modalCampAudience').textContent = campaign.target_audience || 'General';
             document.getElementById('modalCampDate').textContent = new Date(campaign.created_at).toLocaleDateString();
             
@@ -296,8 +305,8 @@
             document.getElementById('modalOfferStatus').className = `status-badge ${offer.status}`;
             
             let rate = offer.campaigns?.budget_range || 'Negotiable';
-            if (offer.influencer_quote) rate = `$${offer.influencer_quote} (Creator Quote)`;
-            if (offer.negotiated_amount) rate = `$${offer.negotiated_amount} (Agreed)`;
+            if (offer.influencer_quote) rate = `${window.ReachIQ.formatInr(offer.influencer_quote)} (Creator Quote)`;
+            if (offer.negotiated_amount) rate = `${window.ReachIQ.formatInr(offer.negotiated_amount)} (Agreed)`;
             
             document.getElementById('modalOfferRate').textContent = rate;
             document.getElementById('modalOfferDate').textContent = new Date(offer.created_at).toLocaleDateString();

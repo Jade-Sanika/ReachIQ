@@ -1,4 +1,4 @@
-import { supabase } from './supabase.js';
+import { supabaseClient } from './supabase.js';
 import { showMessage, redirectTo, apiCall } from './utils.js';
 
 // Authentication state management
@@ -8,7 +8,7 @@ let currentProfile = null;
 // Check authentication status
 async function checkAuth() {
     try {
-        const { data: { user }, error } = await supabase.auth.getUser();
+        const { data: { user }, error } = await supabaseClient.auth.getUser();
         
         if (error) throw error;
         
@@ -46,7 +46,7 @@ async function checkAuth() {
 
 async function fallbackAuthCheck() {
     try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await supabaseClient.auth.getUser();
         
         if (!user) {
             redirectTo('/');
@@ -54,7 +54,7 @@ async function fallbackAuthCheck() {
         }
         
         // Get profile directly from Supabase
-        const { data: profile, error } = await supabase
+        const { data: profile, error } = await supabaseClient
             .from('profiles')
             .select('*')
             .eq('id', user.id)
@@ -77,7 +77,7 @@ async function fallbackAuthCheck() {
 }
 
 async function getToken() {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await supabaseClient.auth.getSession();
     return session?.access_token;
 }
 
@@ -100,7 +100,7 @@ async function signUp(email, password, fullName, role) {
         showMessage('Creating your account...', 'success');
         
         // Create auth user
-        const { data: authData, error: authError } = await supabase.auth.signUp({
+        const { data: authData, error: authError } = await supabaseClient.auth.signUp({
             email,
             password,
         });
@@ -108,7 +108,7 @@ async function signUp(email, password, fullName, role) {
         if (authError) throw authError;
         
         // Create profile
-        const { error: profileError } = await supabase
+        const { error: profileError } = await supabaseClient
             .from('profiles')
             .insert([
                 {
@@ -123,7 +123,7 @@ async function signUp(email, password, fullName, role) {
         
         // If influencer, create influencer profile
         if (role === 'influencer') {
-            await supabase
+            await supabaseClient
                 .from('influencer_profiles')
                 .insert([
                     {
@@ -154,7 +154,7 @@ async function login(email, password) {
     try {
         showMessage('Logging in...', 'success');
         
-        const { data, error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
             email,
             password,
         });
@@ -175,7 +175,7 @@ async function login(email, password) {
 // Logout function
 async function logout() {
     try {
-        const { error } = await supabase.auth.signOut();
+        const { error } = await supabaseClient.auth.signOut();
         if (error) throw error;
         
         currentUser = null;

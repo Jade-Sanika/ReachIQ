@@ -32,30 +32,84 @@
         </div>
     </div>
 
+    <div id="offerDetailsModal" class="modal-overlay">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeOfferModal()">&times;</span>
+            <h2 id="detailCampaignName">Campaign Details</h2>
+            <p id="detailBrandName" style="color:var(--gold);margin-top:0.35rem;"></p>
+
+            <div class="modal-section">
+                <h3>Campaign Brief</h3>
+                <p id="detailBrief"></p>
+            </div>
+
+            <div class="modal-section">
+                <h3>Terms</h3>
+                <ul class="modal-list">
+                    <li><strong>Status:</strong> <span id="detailStatus"></span></li>
+                    <li><strong>Budget:</strong> <span id="detailBudget"></span></li>
+                    <li><strong>Target Audience:</strong> <span id="detailAudience"></span></li>
+                    <li><strong>Brand Notes:</strong> <span id="detailNotes"></span></li>
+                </ul>
+            </div>
+
+            <div id="counterSection" class="modal-section" style="display:none;">
+                <h3>Counter Offer</h3>
+                <div class="form-group">
+                    <label for="counterAmount">Your Counter Amount (INR)</label>
+                    <input type="number" id="counterAmount" min="0" step="1" placeholder="e.g. 1500">
+                </div>
+            </div>
+
+            <div id="deliverableSection" class="modal-section" style="display:none;">
+                <h3>Submit Video Link</h3>
+                <div class="form-group">
+                    <label for="deliverableUrl">YouTube Video URL</label>
+                    <input type="url" id="deliverableUrl" placeholder="https://www.youtube.com/watch?v=...">
+                </div>
+                <div class="form-group">
+                    <label for="deliverableNote">Submission Note</label>
+                    <textarea id="deliverableNote" rows="3" placeholder="Add notes for the brand about timing, CTA placement, or milestone expectations"></textarea>
+                </div>
+            </div>
+
+            <div id="negotiationAdviceSection" class="modal-section" style="display:none;">
+                <h3>AI Negotiation Plan</h3>
+                <p id="negotiationAdviceText" style="white-space:pre-line;"></p>
+            </div>
+
+            <div style="margin-top:2rem;display:flex;gap:1rem;justify-content:flex-end;flex-wrap:wrap;">
+                <button class="btn-secondary" onclick="closeOfferModal()">Close</button>
+                <button class="btn-secondary" id="deliverableSubmitBtn" style="display:none;" onclick="submitDeliverable()">Submit Video</button>
+                <button class="btn-secondary" id="negotiationPlanBtn" onclick="loadNegotiationPlan()" style="display:none;">AI Plan</button>
+                <button class="btn-primary" id="counterSaveBtn" style="display:none;" onclick="submitCounterOffer()">Send Counter</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/notifications.js"></script>
+    <script src="js/profile-menu.js"></script>
     <script>
-        const SUPABASE_URL = 'https://rbqphouxghbiynlqanmp.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJicXBob3V4Z2hiaXlubHFhbm1wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2NTAzNzIsImV4cCI6MjA3NjIyNjM3Mn0.VWSTqtXNy-twpJWk1VJqWRLfomKex8maiSf6wVuFlLM';
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const supabaseClient = window.ReachIQ.createSupabaseClient();
+        let allOffers = [];
+        let selectedOfferId = null;
 
         async function init() {
+            const auth = await window.ReachIQ.requireRole(supabaseClient, 'influencer');
+            if (!auth) return;
+
             const { data: { session } } = await supabaseClient.auth.getSession();
-            if (!session) return window.location.href = '/';
             try {
-                const { data, error } = await supabaseClient
-                    .from('offers')
-                    .select(`*, campaigns ( name, brief_text, target_audience, brand_id, budget_range )`)
-                    .eq('influencer_id', session.user.id)
-                    .order('id', { ascending: false });
-                if (error) throw error;
-                let offersData = data || [];
-                for (let offer of offersData) {
-                    if (offer.campaigns && offer.campaigns.brand_id) {
-                        const { data: bData } = await supabaseClient.from('profiles').select('full_name').eq('id', offer.campaigns.brand_id).single();
-                        offer.brand_name = bData ? bData.full_name : 'Verified Brand';
-                    }
-                }
-                renderOffers(offersData);
+                const response = await fetch('/api/influencer/offers', {
+                    headers: { 'Authorization': `Bearer ${session.access_token}` }
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || 'Failed to load offers');
+                allOffers = payload.offers || [];
+                renderOffers(allOffers);
+                applyNotificationContext();
             } catch (err) {
                 console.error("Fetch Error:", err);
                 document.getElementById('offersContainer').innerHTML = `<div style="text-align:center;padding:3rem;color:var(--danger);">Failed to load your offers.</div>`;
@@ -76,7 +130,7 @@
             }
             container.innerHTML = offers.map(o => {
                 const dateDisplay = o.created_at ? new Date(o.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) : 'Recently';
-                const currentRate = o.negotiated_amount ? `$${o.negotiated_amount}` : (o.campaigns?.budget_range || 'Negotiable');
+                const currentRate = o.negotiated_amount ? window.ReachIQ.formatInr(o.negotiated_amount) : (o.campaigns?.budget_range || 'Negotiable');
                 const statusColors = { pending: 'var(--warning)', accepted: 'var(--teal)', rejected: 'var(--danger)', negotiating: '#a78bfa' };
                 const accentColor = statusColors[o.status] || 'var(--text-muted)';
                 return `
@@ -94,6 +148,7 @@
                         <div class="offer-brief-box">
                             <p class="offer-brief-label">Campaign Brief</p>
                             <p class="offer-brief-text">${o.campaigns?.brief_text || 'The brand will share full details during negotiation.'}</p>
+                            <p class="offer-brief-text" style="margin-top:0.75rem;"><strong>Negotiation:</strong> ${o.negotiation_summary?.headline || 'No negotiation summary yet.'}</p>
                         </div>
 
                         <div class="offer-terms-row">
@@ -109,6 +164,10 @@
                                 <span class="offer-term-label">Received</span>
                                 <span class="offer-term-value">${dateDisplay}</span>
                             </div>
+                            <div class="offer-term">
+                                <span class="offer-term-label">Escrow</span>
+                                <span class="offer-term-value">${(o.payment_status || 'escrow_pending').replace(/_/g, ' ')}</span>
+                            </div>
                         </div>
 
                         <div class="offer-action-row">
@@ -117,6 +176,9 @@
                                 <button class="btn-secondary" onclick="counterOffer('${o.id}')">Counter Offer</button>
                                 <button class="btn-ai-draft" id="aiBtn-${o.id}" onclick="aiReply('${o.id}')">✦ Draft with AI</button>
                                 <button class="btn-danger" style="margin-left:auto;" onclick="declineOffer('${o.id}')">Decline</button>
+                            ` : o.status === 'accepted' ? `
+                                <button class="btn-primary" onclick="submitVideoForOffer('${o.id}')">${o.deliverable_url ? 'Update Video Link' : 'Submit Video Link'}</button>
+                                <button class="btn-secondary" onclick="viewDetails('${o.id}')">View Contract Details</button>
                             ` : `
                                 <button class="btn-secondary" onclick="viewDetails('${o.id}')">View Contract Details</button>
                             `}
@@ -135,7 +197,7 @@
                     body: JSON.stringify({ offer_id: id, status: newStatus })
                 });
                 const result = await response.json();
-                if (result.status === 'success') { alert(`Offer marked as ${newStatus}!`); init(); }
+                if (result.status === 'success') { init(); }
                 else alert("Error: " + result.error);
             } catch (err) { alert("Failed to connect to server."); }
         }
@@ -161,9 +223,185 @@
         }
 
         function declineOffer(id) { if (confirm("Are you sure you want to decline this offer?")) updateOfferStatus(id, 'rejected'); }
-        function counterOffer(id) { alert("Opening Negotiation Chat Module..."); }
-        function viewDetails(id) { alert("Loading contract terms..."); }
+        function counterOffer(id) { openOfferModal(id, true); }
+        function viewDetails(id) { openOfferModal(id, false); }
+
+        function openOfferModal(id, enableCounter) {
+            const offer = allOffers.find(item => item.id === id);
+            if (!offer) return;
+
+            selectedOfferId = id;
+            document.getElementById('detailCampaignName').textContent = offer.campaigns?.name || 'Campaign Details';
+            document.getElementById('detailBrandName').textContent = offer.brand_name || 'Brand Partner';
+            document.getElementById('detailBrief').textContent = offer.campaigns?.brief_text || 'No brief shared yet.';
+            document.getElementById('detailStatus').textContent = offer.status || 'pending';
+            document.getElementById('detailBudget').textContent = offer.negotiated_amount ? window.ReachIQ.formatInr(offer.negotiated_amount) : (offer.campaigns?.budget_range || 'Negotiable');
+            document.getElementById('detailAudience').textContent = offer.campaigns?.target_audience || 'General';
+            document.getElementById('detailNotes').textContent = offer.brand_notes || 'No additional notes.';
+            document.getElementById('counterAmount').value = offer.influencer_quote || offer.negotiated_amount || '';
+            document.getElementById('deliverableUrl').value = offer.deliverable_url || '';
+            document.getElementById('deliverableNote').value = offer.review_notes || '';
+            document.getElementById('counterSection').style.display = enableCounter ? 'block' : 'none';
+            document.getElementById('deliverableSection').style.display = 'none';
+            document.getElementById('deliverableSubmitBtn').style.display = 'none';
+            document.getElementById('counterSaveBtn').style.display = enableCounter ? 'inline-flex' : 'none';
+            document.getElementById('negotiationPlanBtn').style.display = enableCounter ? 'inline-flex' : 'none';
+            document.getElementById('negotiationAdviceSection').style.display = 'none';
+            document.getElementById('negotiationAdviceText').textContent = '';
+            document.getElementById('offerDetailsModal').style.display = 'flex';
+        }
+
+        function submitVideoForOffer(id) {
+            openOfferModal(id, false);
+            document.getElementById('deliverableSection').style.display = 'block';
+            document.getElementById('deliverableSubmitBtn').style.display = 'inline-flex';
+        }
+
+        function applyNotificationContext() {
+            const params = new URLSearchParams(window.location.search);
+            const offerId = params.get('offerId');
+            const action = params.get('action') || 'view';
+            if (!offerId) return;
+
+            const offer = allOffers.find(item => item.id === offerId);
+            if (!offer) return;
+
+            setTimeout(() => {
+                if (action === 'counter' && (offer.status === 'pending' || offer.status === 'negotiating')) {
+                    counterOffer(offerId);
+                } else if (action === 'deliverable' && offer.status === 'accepted') {
+                    submitVideoForOffer(offerId);
+                } else {
+                    viewDetails(offerId);
+                }
+            }, 80);
+        }
+
+        async function loadNegotiationPlan() {
+            if (!selectedOfferId) return;
+
+            const button = document.getElementById('negotiationPlanBtn');
+            button.disabled = true;
+            button.textContent = 'Thinking...';
+
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session) throw new Error('Please log in again.');
+
+                const response = await fetch('/api/offers/negotiation-advice', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${session.access_token}`
+                    },
+                    body: JSON.stringify({ offer_id: selectedOfferId })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || 'Failed to load negotiation plan');
+
+                const advice = payload.advice || {};
+                if (advice.suggested_amount) {
+                    document.getElementById('counterAmount').value = advice.suggested_amount;
+                }
+                document.getElementById('negotiationAdviceText').textContent = [
+                    `Strategy: ${advice.strategy || 'No strategy returned.'}`,
+                    `Guardrails: ${window.ReachIQ.formatInr(advice.guardrails?.minimum || 0)} to ${window.ReachIQ.formatInr(advice.guardrails?.maximum || 0)}`,
+                    `Acceptance Rate: ${advice.historical_context?.acceptance_rate || 0}%`,
+                    '',
+                    advice.draft_message || ''
+                ].join('\n');
+                document.getElementById('negotiationAdviceSection').style.display = 'block';
+            } catch (error) {
+                alert(error.message);
+            } finally {
+                button.disabled = false;
+                button.textContent = 'AI Plan';
+            }
+        }
+
+        async function submitCounterOffer() {
+            if (!selectedOfferId) return;
+
+            const amount = document.getElementById('counterAmount').value;
+            if (!amount) {
+                alert('Enter a counter amount first.');
+                return;
+            }
+
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                const response = await fetch('/api/offers/update-status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+                    body: JSON.stringify({
+                        offer_id: selectedOfferId,
+                        status: 'negotiating',
+                        negotiated_amount: amount,
+                        influencer_quote: amount
+                    })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || 'Failed to send counter offer');
+
+                closeOfferModal();
+                await init();
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        async function submitDeliverable() {
+            if (!selectedOfferId) return;
+
+            const videoUrl = document.getElementById('deliverableUrl').value.trim();
+            if (!videoUrl) {
+                alert('Enter the YouTube video link first.');
+                return;
+            }
+
+            const button = document.getElementById('deliverableSubmitBtn');
+            button.disabled = true;
+            button.textContent = 'Submitting...';
+
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                const response = await fetch('/api/offers/submit-deliverable', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${session.access_token}`
+                    },
+                    body: JSON.stringify({
+                        offer_id: selectedOfferId,
+                        video_url: videoUrl,
+                        submission_note: document.getElementById('deliverableNote').value
+                    })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || 'Failed to submit video');
+
+                closeOfferModal();
+                await init();
+            } catch (error) {
+                alert(error.message);
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Submit Video';
+            }
+        }
+
+        function closeOfferModal() {
+            selectedOfferId = null;
+            document.getElementById('offerDetailsModal').style.display = 'none';
+            document.getElementById('negotiationAdviceSection').style.display = 'none';
+            document.getElementById('deliverableSection').style.display = 'none';
+        }
         async function logout() { await supabaseClient.auth.signOut(); window.location.href = '/'; }
+        window.addEventListener('click', (event) => {
+            if (event.target.id === 'offerDetailsModal') {
+                closeOfferModal();
+            }
+        });
         document.addEventListener('DOMContentLoaded', init);
     </script>
 
@@ -209,6 +447,24 @@
         }
         .btn-ai-draft:hover { background: rgba(212,168,83,0.25); }
         .btn-ai-draft:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .modal-overlay {
+            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+            z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(5px);
+        }
+        .modal-content {
+            background: var(--navy); border: 1px solid var(--glass-border); border-radius: var(--radius-lg);
+            padding: 2rem; max-width: 620px; width: 92%; position: relative; max-height: 90vh; overflow-y: auto;
+        }
+        .modal-close {
+            position: absolute; top: 1rem; right: 1rem; font-size: 2rem; color: var(--text-muted);
+            cursor: pointer; line-height: 1;
+        }
+        .modal-section { margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-subtle); }
+        .modal-section h3 { margin-top: 0; margin-bottom: 0.75rem; font-size: 0.9rem; color: var(--gold); }
+        .modal-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.75rem; }
+        .modal-list li { color: var(--text-secondary); display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .modal-list strong { color: var(--white); min-width: 130px; }
     </style>
 </body>
 </html>

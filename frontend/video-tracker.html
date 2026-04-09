@@ -12,7 +12,7 @@
         <div class="nav-brand">✦ ReachIQ</div>
         <div class="nav-links">
             <a href="brand-dashboard.html">Dashboard</a>
-            <a href="create-campaign.html">Campaigns</a>
+            <a href="brand-campaigns.html">Campaigns</a>
             <a href="creator-discovery.html">Discover</a>
             <a href="brand-offers.html">Offers</a>
             <a href="video-tracker.html" class="active">Tracker</a>
@@ -46,7 +46,30 @@
             <div id="trackerError" style="color:var(--danger);margin-top:0.75rem;display:none;font-size:0.875rem;"></div>
         </div>
 
+        <div class="tracker-input-card" style="margin-top:1.25rem;">
+            <div class="section-title-row" style="margin-bottom:1rem;">
+                <div>
+                    <p style="color:var(--gold);font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:0.35rem;">Deliverable QA</p>
+                    <h2 style="font-size:1.15rem;">Automatic Campaign-to-Deliverable Review</h2>
+                    <p style="color:var(--text-muted);margin-top:0.35rem;">ReachIQ automatically compares the submitted video against the saved campaign brief, milestone target, and delivery requirements.</p>
+                </div>
+            </div>
+            <div id="qaResults" class="qa-results" style="display:none;"></div>
+            <div id="qaEmptyState" class="empty-inline">Open analytics from a campaign submission to see the automatic QA review.</div>
+        </div>
+
         <div id="dashboardSection" style="display:none;margin-top:2rem;">
+            <div id="offerContextPanel" class="tracker-input-card" style="display:none;margin-bottom:1.25rem;">
+                <div class="section-title-row" style="margin-bottom:1rem;">
+                    <div>
+                        <p style="color:var(--gold);font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:0.35rem;">Offer Context</p>
+                        <h2 id="offerContextTitle" style="font-size:1.1rem;">Campaign Delivery Overview</h2>
+                    </div>
+                    <div id="paymentActionRow" style="display:flex;gap:0.75rem;flex-wrap:wrap;"></div>
+                </div>
+                <div id="offerContextSummary" class="qa-summary-grid"></div>
+                <div id="offerTimeline" class="timeline-list" style="margin-top:1rem;"></div>
+            </div>
 
             <div class="video-info-banner">
                 <div style="position: relative;">
@@ -83,9 +106,9 @@
                     <p class="kpi-sub">lifetime views</p>
                 </div>
                 <div class="kpi-card kpi-highlight">
-                    <p class="kpi-label" style="color:var(--teal)">Earned Media Value <span title="Estimated equivalent ad spend at $20 CPM" style="cursor:help;opacity:0.6">ⓘ</span></p>
-                    <p class="kpi-value" id="kpiEmv" style="color:var(--teal)">$0.00</p>
-                    <p class="kpi-sub">at $20 CPM</p>
+                    <p class="kpi-label" style="color:var(--teal)">Earned Media Value <span title="Estimated equivalent ad spend at ₹1,660 CPM" style="cursor:help;opacity:0.6">ⓘ</span></p>
+                    <p class="kpi-value" id="kpiEmv" style="color:var(--teal)">₹0.00</p>
+                    <p class="kpi-sub">at ₹1,660 CPM</p>
                 </div>
                 <div class="kpi-card">
                     <p class="kpi-label">Engagement Rate</p>
@@ -148,14 +171,21 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/notifications.js"></script>
+    <script src="js/profile-menu.js"></script>
     <script>
-        const SUPABASE_URL = 'https://rbqphouxghbiynlqanmp.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJicXBob3V4Z2hiaXlubHFhbm1wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2NTAzNzIsImV4cCI6MjA3NjIyNjM3Mn0.VWSTqtXNy-twpJWk1VJqWRLfomKex8maiSf6wVuFlLM';
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const supabaseClient = window.ReachIQ.createSupabaseClient();
         const charts = {};
+        let lastAnalyzedVideoUrl = '';
+        let currentOfferContext = null;
 
         Chart.defaults.font.family = "'DM Sans', sans-serif";
         Chart.defaults.color = '#9ba3b8';
+
+        async function ensureBrandAccess() {
+            return await window.ReachIQ.requireRole(supabaseClient, 'brand');
+        }
 
         async function analyzeVideo() {
             const url = document.getElementById('videoUrl').value;
@@ -180,7 +210,10 @@
                 });
                 
                 const result = await response.json();
-                if (result.status === 'success') { renderDashboard(result.data); }
+                if (result.status === 'success') {
+                    lastAnalyzedVideoUrl = url;
+                    renderDashboard(result.data);
+                }
                 else throw new Error(result.error);
                 
             } catch (err) { 
@@ -218,7 +251,7 @@
             document.getElementById('kpiComments').textContent = data.metrics.comments.toLocaleString();
             document.getElementById('kpiEngagement').textContent = data.metrics.engagement_rate + '%';
             document.getElementById('kpiLikeRatio').textContent = data.metrics.like_to_view_ratio + '%';
-            document.getElementById('kpiEmv').textContent = '$' + emv.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+            document.getElementById('kpiEmv').textContent = window.ReachIQ.formatInr(data.metrics.earned_media_value_inr || 0, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             
             // Milestone
             const pbFill = document.getElementById('progressBar');
@@ -284,13 +317,267 @@
             });
         }
 
+        function renderQaPlaceholder(message = 'Open analytics from a campaign submission to see the automatic QA review.') {
+            document.getElementById('qaResults').style.display = 'none';
+            document.getElementById('qaResults').innerHTML = '';
+            document.getElementById('qaEmptyState').textContent = message;
+            document.getElementById('qaEmptyState').style.display = 'block';
+        }
+
+        function renderQaResults(review, requirements = null) {
+            const container = document.getElementById('qaResults');
+            const talkingPoints = review.talking_point_coverage || [];
+            const actionItems = review.action_items || [];
+            const competitors = review.competitor_mentions || [];
+            const requirementNotes = [];
+            if (requirements?.required_cta) requirementNotes.push(`CTA: ${requirements.required_cta}`);
+            if ((requirements?.talking_points || []).length) requirementNotes.push(`Talking points: ${requirements.talking_points.length}`);
+            if ((requirements?.competitors || []).length) requirementNotes.push(`Competitors flagged: ${requirements.competitors.join(', ')}`);
+
+            container.innerHTML = `
+                <div class="qa-summary-grid">
+                    <div class="qa-summary-card">
+                        <p class="qa-label">Overall Score</p>
+                        <p class="qa-value">${review.overall_score || 0}/100</p>
+                        <p class="qa-text">${review.summary || ''}</p>
+                    </div>
+                    <div class="qa-summary-card">
+                        <p class="qa-label">Brand Safety</p>
+                        <p class="qa-value" style="text-transform:capitalize;">${review.brand_safety?.level || 'unknown'}</p>
+                        <p class="qa-text">${review.brand_safety?.notes || ''}</p>
+                    </div>
+                    <div class="qa-summary-card">
+                        <p class="qa-label">CTA Compliance</p>
+                        <p class="qa-value" style="text-transform:capitalize;">${review.cta_compliance?.status || 'unknown'}</p>
+                        <p class="qa-text">${review.cta_compliance?.evidence || ''}</p>
+                    </div>
+                    <div class="qa-summary-card">
+                        <p class="qa-label">Campaign Checks Used</p>
+                        <p class="qa-text">${requirementNotes.join(' • ') || 'Campaign brief and milestone target were used for the automatic review.'}</p>
+                    </div>
+                </div>
+                <div class="qa-detail-grid">
+                    <div class="qa-detail-card">
+                        <h3>Talking Point Coverage</h3>
+                        <div class="qa-chip-list">
+                            ${talkingPoints.map(item => `<span class="qa-chip ${item.status === 'covered' ? 'covered' : 'missing'}">${item.point}: ${item.status}</span>`).join('') || '<span class="qa-chip">No talking points provided</span>'}
+                        </div>
+                    </div>
+                    <div class="qa-detail-card">
+                        <h3>Sentiment & Competitors</h3>
+                        <p class="qa-text"><strong>Sentiment:</strong> ${review.sentiment || 'unknown'}</p>
+                        <p class="qa-text"><strong>Competitor Mentions:</strong> ${competitors.length ? competitors.join(', ') : 'None flagged'}</p>
+                    </div>
+                    <div class="qa-detail-card">
+                        <h3>Action Items</h3>
+                        <ul class="qa-actions">
+                            ${actionItems.map(item => `<li>${item}</li>`).join('') || '<li>No action items.</li>'}
+                        </ul>
+                    </div>
+                </div>`;
+            container.style.display = 'block';
+            document.getElementById('qaEmptyState').style.display = 'none';
+        }
+
+        function renderOfferContext(offer) {
+            currentOfferContext = offer;
+            document.getElementById('offerContextPanel').style.display = 'block';
+            document.getElementById('offerContextTitle').textContent = `${offer.creator?.full_name || 'Creator'} • ${offer.campaign?.name || 'Campaign'}`;
+            document.getElementById('offerContextSummary').innerHTML = `
+                <div class="qa-summary-card">
+                    <p class="qa-label">Negotiation</p>
+                    <p class="qa-text">${offer.negotiation_summary?.headline || 'No summary available.'}</p>
+                </div>
+                <div class="qa-summary-card">
+                    <p class="qa-label">Escrow Status</p>
+                    <p class="qa-value" style="font-size:1rem;text-transform:capitalize;">${(offer.payment_status || 'escrow_pending').replace(/_/g, ' ')}</p>
+                    <p class="qa-text">${offer.decision_summary?.payment_recommendation || ''}</p>
+                </div>
+                <div class="qa-summary-card">
+                    <p class="qa-label">Milestone Target</p>
+                    <p class="qa-value" style="font-size:1rem;">${(offer.campaign?.milestone_views || 0).toLocaleString()} views</p>
+                    <p class="qa-text">${offer.campaign?.timeline_requirements || 'No timeline requirements saved.'}</p>
+                </div>`;
+
+            document.getElementById('offerTimeline').innerHTML = (offer.timeline || []).map(item => `
+                <div class="timeline-item ${item.status}">
+                    <strong>${item.label}</strong>
+                    <span>${item.detail || ''}</span>
+                </div>
+            `).join('');
+
+            const actionRow = document.getElementById('paymentActionRow');
+            actionRow.innerHTML = `
+                <button class="btn-secondary" onclick="updatePaymentState('payment_processing')">Start Payment</button>
+                <button class="btn-primary" onclick="updatePaymentState('paid')">Mark Paid</button>
+            `;
+        }
+
+        async function loadOfferAnalytics(offerId) {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            const response = await fetch(`/api/offers/${offerId}/analytics`, {
+                headers: { 'Authorization': `Bearer ${session.access_token}` }
+            });
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload.error || 'Failed to load offer analytics');
+
+            lastAnalyzedVideoUrl = payload.offer?.deliverable_url || '';
+            if (lastAnalyzedVideoUrl) {
+                document.getElementById('videoUrl').value = lastAnalyzedVideoUrl;
+            }
+            if (payload.offer?.campaign?.milestone_views) {
+                document.getElementById('milestoneTarget').value = payload.offer.campaign.milestone_views;
+            }
+
+            renderOfferContext(payload.offer);
+            renderDashboard(payload.data);
+            if (payload.review) {
+                renderQaResults(payload.review, payload.qa_requirements || {});
+            } else {
+                renderQaPlaceholder('Automatic QA was not available for this deliverable.');
+            }
+        }
+
+        async function updatePaymentState(paymentStatus) {
+            if (!currentOfferContext?.id) return;
+
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            const response = await fetch('/api/offers/update-fulfillment', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`
+                },
+                body: JSON.stringify({
+                    offer_id: currentOfferContext.id,
+                    deliverable_status: paymentStatus === 'paid' ? 'milestone_hit' : currentOfferContext.deliverable_status,
+                    payment_status: paymentStatus,
+                    review_notes: currentOfferContext.review_notes || 'Updated from analytics dashboard'
+                })
+            });
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload.error || 'Failed to update payment status');
+            await loadOfferAnalytics(currentOfferContext.id);
+        }
+
         async function logout() { await supabaseClient.auth.signOut(); window.location.href = '/'; }
+        document.addEventListener('DOMContentLoaded', async () => {
+            await ensureBrandAccess();
+            renderQaPlaceholder();
+            const params = new URLSearchParams(window.location.search);
+            const offerId = params.get('offer');
+            if (offerId) {
+                try {
+                    await loadOfferAnalytics(offerId);
+                } catch (error) {
+                    document.getElementById('trackerError').textContent = error.message;
+                    document.getElementById('trackerError').style.display = 'block';
+                }
+            }
+        });
     </script>
 
     <style>
         .tracker-input-card {
             background: var(--glass); border: 1px solid var(--glass-border);
             border-radius: var(--radius-lg); padding: 2rem; backdrop-filter: blur(12px);
+        }
+        .qa-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        .qa-results {
+            margin-top: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .qa-summary-grid,
+        .qa-detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+        }
+        .qa-summary-card,
+        .qa-detail-card {
+            background: var(--white-10);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius);
+            padding: 1rem;
+        }
+        .qa-label {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-weight: 700;
+        }
+        .qa-value {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.35rem;
+            color: var(--gold);
+            margin: 0.35rem 0;
+        }
+        .qa-text {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+        .qa-chip-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .qa-chip {
+            background: var(--white-10);
+            border: 1px solid var(--border-subtle);
+            border-radius: 999px;
+            padding: 0.35rem 0.65rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        .qa-chip.covered {
+            border-color: rgba(77,217,192,0.25);
+            color: var(--teal);
+        }
+        .qa-chip.missing {
+            border-color: rgba(244,165,176,0.25);
+            color: var(--danger);
+        }
+        .qa-actions {
+            margin: 0;
+            padding-left: 1.1rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+        .timeline-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .timeline-item {
+            background: var(--white-10);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius);
+            padding: 0.9rem 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+        .timeline-item strong {
+            color: var(--white);
+        }
+        .timeline-item span {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+        .timeline-item.completed {
+            border-color: rgba(77,217,192,0.25);
+        }
+        .timeline-item.in_progress {
+            border-color: rgba(240,201,122,0.25);
         }
         .form-row { display: flex; gap: 1.25rem; flex-wrap: wrap; align-items: flex-end; }
         .form-row .form-group { margin-bottom: 0; }
@@ -356,6 +643,7 @@
             .video-info-banner { flex-direction: column; text-align: center; }
             .vid-thumb { width: 100%; max-width: 320px; }
             .form-row { flex-direction: column; }
+            .qa-grid { grid-template-columns: 1fr; }
         }
         @media (max-width: 480px) { .kpi-grid { grid-template-columns: 1fr 1fr; } }
     </style>

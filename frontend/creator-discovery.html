@@ -11,9 +11,10 @@
         <div class="nav-brand">✦ ReachIQ</div>
         <div class="nav-links">
             <a href="brand-dashboard.html">Dashboard</a>
-            <a href="create-campaign.html">Campaigns</a>
+            <a href="brand-campaigns.html">Campaigns</a>
             <a href="creator-discovery.html" class="active">Discover</a>
             <a href="brand-offers.html">Offers</a>
+            <a href="video-tracker.html">Tracker</a>
             <button onclick="logout()" class="btn-logout">Sign Out</button>
         </div>
     </nav>
@@ -60,17 +61,52 @@
         </div>
     </div>
 
+    <div id="offerComposerModal" class="modal-overlay">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeOfferComposer()">&times;</span>
+            <h2>Send Offer</h2>
+            <p style="color:var(--text-muted);margin-top:0.35rem;">Choose a campaign and add optional notes for this creator.</p>
+
+            <div class="modal-section">
+                <div class="form-group">
+                    <label for="offerCampaignSelect">Campaign</label>
+                    <select id="offerCampaignSelect"></select>
+                </div>
+                <div class="form-group">
+                    <label for="offerBrandNotes">Brand Notes</label>
+                    <textarea id="offerBrandNotes" rows="4" placeholder="Share deliverables, timing, or campaign context"></textarea>
+                </div>
+            </div>
+
+            <div style="margin-top:2rem;display:flex;gap:1rem;justify-content:flex-end;flex-wrap:wrap;">
+                <button class="btn-secondary" onclick="closeOfferComposer()">Close</button>
+                <button class="btn-primary" onclick="submitOfferComposer()" id="offerSubmitBtn">Send Offer</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/notifications.js"></script>
+    <script src="js/profile-menu.js"></script>
     <script>
-        const SUPABASE_URL = 'https://rbqphouxghbiynlqanmp.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJicXBob3V4Z2hiaXlubHFhbm1wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2NTAzNzIsImV4cCI6MjA3NjIyNjM3Mn0.VWSTqtXNy-twpJWk1VJqWRLfomKex8maiSf6wVuFlLM';
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const supabaseClient = window.ReachIQ.createSupabaseClient();
 
         let allCreators = [];
+        let availableCampaigns = [];
+        let selectedInfluencerId = null;
+        let selectedButtonElement = null;
+        let currentBrandUser = null;
         const urlParams = new URLSearchParams(window.location.search);
         const campaignId = urlParams.get('campaign');
 
         async function logout() { await supabaseClient.auth.signOut(); window.location.href = '/'; }
+
+        async function checkAuth() {
+            const auth = await window.ReachIQ.requireRole(supabaseClient, 'brand');
+            currentBrandUser = auth?.user || null;
+            return auth;
+        }
 
         function formatNumber(num) {
             if (!num) return '0';
@@ -79,11 +115,29 @@
             return num.toString();
         }
 
+        async function loadBrandCampaigns() {
+            if (!currentBrandUser) return;
+
+            const { data, error } = await supabaseClient
+                .from('campaigns')
+                .select('id, name, status')
+                .eq('brand_id', currentBrandUser.id)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            availableCampaigns = data || [];
+        }
+
         async function fetchCreators() {
             try {
                 if (campaignId) {
                     document.getElementById('matchingStatus').style.display = 'flex';
-                    const response = await fetch(`/api/campaigns/${campaignId}/match-influencers`);
+                    const { data: { session } } = await supabaseClient.auth.getSession();
+                    if (!session) return window.location.href = '/';
+
+                    const response = await fetch(`/api/campaigns/${campaignId}/match-influencers`, {
+                        headers: { 'Authorization': `Bearer ${session.access_token}` }
+                    });
                     const data = await response.json();
                     if (data.status === 'success') { allCreators = data.matched_influencers; }
                     else throw new Error(data.error || "Failed to match influencers");
@@ -114,10 +168,31 @@
                 const fullName = profileObj.full_name || 'Anonymous Creator';
                 const handle = c.youtube_channel || (profileObj.username ? `@${profileObj.username}` : '@user');
                 const avatarUrl = profileObj.avatar_url;
+                const prediction = c.prediction || {};
+                const pricing = prediction.pricing_fairness || {};
                 const avatarHtml = avatarUrl
                     ? `<img src="${avatarUrl}" class="creator-avatar-img" alt="${fullName}">`
                     : `<div class="creator-avatar-fallback">${fullName.charAt(0).toUpperCase()}</div>`;
                 const platformIcon = c.platform === 'youtube' ? '▶️' : '📱';
+                const reasonHtml = (c.match_reasons || []).length
+                    ? `<div class="creator-ai-reasons">${c.match_reasons.map(reason => `<span class="reason-pill">${reason}</span>`).join('')}</div>`
+                    : '';
+                const forecastHtml = prediction.predicted_views
+                    ? `<div class="creator-forecast">
+                            <div class="forecast-item">
+                                <strong>${formatNumber(prediction.predicted_views)}</strong>
+                                <span>Predicted Views</span>
+                            </div>
+                            <div class="forecast-item">
+                                <strong>${prediction.conversion_likelihood || 0}%</strong>
+                                <span>Conversion</span>
+                            </div>
+                            <div class="forecast-item">
+                                <strong>${pricing.label || 'fair'}</strong>
+                                <span>Pricing</span>
+                            </div>
+                        </div>`
+                    : '';
 
                 return `<div class="creator-card">
                     <div class="creator-card-header">
@@ -132,8 +207,9 @@
                         ${c.match_percentage ? `<div class="match-pill">${c.match_percentage}% Match</div>` : ''}
                     </div>
                     <div class="creator-card-body">
-                        <span class="niche-pill">${c.niche || 'General'}</span>
+                        <span class="niche-pill">${c.display_niche || c.niche || 'General'}</span>
                         <p class="creator-bio">${c.bio || 'No bio provided.'}</p>
+                        ${reasonHtml}
                         <div class="creator-stats">
                             <div class="stat-col">
                                 <strong>${formatNumber(c.follower_count)}</strong>
@@ -148,8 +224,9 @@
                                 <span>Engagement</span>
                             </div>
                         </div>
+                        ${forecastHtml}
                     </div>
-                    <button class="btn-primary" onclick="sendOffer('${c.profile_id}', this)">Send Offer</button>
+                    <button class="btn-primary" onclick="openOfferComposerOrSend('${c.profile_id}', this)">Send Offer</button>
                 </div>`;
             }).join('');
         }
@@ -162,23 +239,67 @@
                 const fullName = (profileObj.full_name || '').toLowerCase();
                 const handle = (c.youtube_channel || profileObj.username || '').toLowerCase();
                 const bio = (c.bio || '').toLowerCase();
+                const niche = (c.display_niche || c.niche || '').toLowerCase();
                 return (fullName.includes(searchTerm) || handle.includes(searchTerm) || bio.includes(searchTerm))
-                    && (selectedNiche === 'all' || c.niche === selectedNiche);
+                    && (selectedNiche === 'all' || niche === selectedNiche);
             });
             renderCreators(filtered);
         }
 
-        // Updated sendOffer function to hit your backend API
-        async function sendOffer(influencerId, buttonElement) {
-            if (!campaignId) {
-                alert("⚠️ Please select a campaign from your Dashboard before sending offers.");
-                window.location.href = 'brand-dashboard.html';
+        async function openOfferComposerOrSend(influencerId, buttonElement) {
+            if (campaignId) {
+                await sendOffer(influencerId, buttonElement);
                 return;
             }
 
-            const brandNotes = prompt("Add a message or specific notes for this creator (Optional):");
-            if (brandNotes === null) return; // User clicked Cancel
+            if (availableCampaigns.length === 0) {
+                alert("Create a campaign first so you can send offers to creators.");
+                window.location.href = 'create-campaign.html';
+                return;
+            }
 
+            selectedInfluencerId = influencerId;
+            selectedButtonElement = buttonElement;
+
+            const select = document.getElementById('offerCampaignSelect');
+            select.innerHTML = availableCampaigns
+                .map(campaign => `<option value="${campaign.id}">${campaign.name}${campaign.status ? ` (${campaign.status})` : ''}</option>`)
+                .join('');
+            select.disabled = false;
+            document.getElementById('offerBrandNotes').value = '';
+            document.getElementById('offerComposerModal').style.display = 'flex';
+        }
+
+        async function sendOffer(influencerId, buttonElement) {
+            if (!campaignId) {
+                await openOfferComposerOrSend(influencerId, buttonElement);
+                return;
+            }
+
+            await performOfferSend(campaignId, influencerId, '', buttonElement);
+        }
+
+        function closeOfferComposer() {
+            selectedInfluencerId = null;
+            selectedButtonElement = null;
+            document.getElementById('offerComposerModal').style.display = 'none';
+        }
+
+        async function submitOfferComposer() {
+            if (!selectedInfluencerId || !selectedButtonElement) return;
+
+            const selectedCampaignId = document.getElementById('offerCampaignSelect').value;
+            if (!selectedCampaignId) {
+                alert('Select a campaign first.');
+                return;
+            }
+
+            const brandNotes = document.getElementById('offerBrandNotes').value;
+            closeOfferComposer();
+            await performOfferSend(selectedCampaignId, selectedInfluencerId, brandNotes, selectedButtonElement);
+        }
+
+        async function performOfferSend(selectedCampaignId, influencerId, brandNotes, buttonElement) {
             const originalText = buttonElement.innerText;
             buttonElement.innerText = "Sending...";
             buttonElement.disabled = true;
@@ -186,8 +307,8 @@
             try {
                 const { data: { session } } = await supabaseClient.auth.getSession();
                 if (!session) {
-                    alert("Please log in to send offers.");
-                    return window.location.href = '/';
+                    window.location.href = '/';
+                    return;
                 }
 
                 const response = await fetch('/api/offers/send', {
@@ -197,16 +318,15 @@
                         'Authorization': `Bearer ${session.access_token}`
                     },
                     body: JSON.stringify({
-                        campaign_id: campaignId,
+                        campaign_id: selectedCampaignId,
                         influencer_id: influencerId,
                         brand_notes: brandNotes
                     })
                 });
 
                 const result = await response.json();
-
                 if (result.status === 'success') {
-                    alert("✅ Offer sent successfully!");
+                    alert("Offer sent successfully!");
                     buttonElement.innerText = "Offer Sent!";
                     buttonElement.style.backgroundColor = "var(--teal, #4dd9c0)";
                     buttonElement.style.color = "var(--midnight, #0b1121)";
@@ -214,16 +334,28 @@
                 } else {
                     throw new Error(result.error || "Failed to send offer");
                 }
-
             } catch (err) {
                 console.error("Offer Error:", err);
-                alert("❌ Error: " + err.message);
+                alert("Error: " + err.message);
                 buttonElement.innerText = originalText;
                 buttonElement.disabled = false;
             }
         }
 
-        document.addEventListener('DOMContentLoaded', fetchCreators);
+        async function initPage() {
+            const auth = await checkAuth();
+            if (!auth) return;
+            await loadBrandCampaigns();
+            await fetchCreators();
+        }
+
+        window.addEventListener('click', (event) => {
+            if (event.target.id === 'offerComposerModal') {
+                closeOfferComposer();
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', initPage);
     </script>
 
     <style>
@@ -252,6 +384,19 @@
         .filter-wrap select { min-width: 180px; }
 
         .creators-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.25rem; }
+        .modal-overlay {
+            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+            z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(5px);
+        }
+        .modal-content {
+            background: var(--navy); border: 1px solid var(--glass-border); border-radius: var(--radius-lg);
+            padding: 2rem; max-width: 560px; width: 92%; position: relative;
+        }
+        .modal-close {
+            position: absolute; top: 1rem; right: 1rem; font-size: 2rem; color: var(--text-muted);
+            cursor: pointer; line-height: 1;
+        }
+        .modal-section { margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--border-subtle); }
 
         .creator-card {
             background: var(--glass); border: 1px solid var(--glass-border);
@@ -299,15 +444,59 @@
             display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
             overflow: hidden; flex: 1;
         }
+        .creator-ai-reasons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .reason-pill {
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+            background: var(--white-10);
+            border: 1px solid var(--border-subtle);
+            border-radius: 999px;
+            padding: 0.32rem 0.65rem;
+            line-height: 1.4;
+        }
         .creator-stats {
             display: flex; justify-content: space-between;
             border-top: 1px solid var(--border-subtle); padding-top: 0.875rem;
+        }
+        .creator-forecast {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.75rem;
+            border-top: 1px solid var(--border-subtle);
+            padding-top: 0.875rem;
+        }
+        .forecast-item {
+            background: var(--white-10);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            padding: 0.75rem;
+            text-align: center;
+        }
+        .forecast-item strong {
+            display: block;
+            color: var(--gold);
+            font-size: 0.95rem;
+            margin-bottom: 0.25rem;
+        }
+        .forecast-item span {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
         .stat-col { text-align: center; }
         .stat-col strong { display: block; font-family: 'Playfair Display', serif; font-size: 1.1rem; color: var(--white); font-weight: 700; margin-bottom: 2px; }
         .stat-col span { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
 
-        @media (max-width: 600px) { .discovery-controls { flex-direction: column; } .search-wrap { min-width: auto; } }
+        @media (max-width: 600px) {
+            .discovery-controls { flex-direction: column; }
+            .search-wrap { min-width: auto; }
+            .creator-forecast { grid-template-columns: 1fr; }
+        }
     </style>
 </body>
 </html>
