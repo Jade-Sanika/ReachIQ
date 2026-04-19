@@ -1,5 +1,7 @@
 import math
+import math
 import re
+import unicodedata
 from collections import Counter
 
 
@@ -42,7 +44,8 @@ def calculate_rate_range(total_views, video_count, engagement_rate, niche):
 
 def normalize_text(value):
     """Normalize free-form text for lightweight semantic comparisons."""
-    lowered = (value or '').lower()
+    normalized = unicodedata.normalize('NFKD', str(value or ''))
+    lowered = normalized.encode('ascii', 'ignore').decode('ascii').lower()
     lowered = re.sub(r'[^a-z0-9\s]', ' ', lowered)
     return re.sub(r'\s+', ' ', lowered).strip()
 
@@ -80,42 +83,49 @@ def local_semantic_similarity(text_a, text_b):
     return cosine_similarity(vector_a, vector_b)
 
 
+def _stringify_matching_value(value):
+    """Normalize mixed campaign/profile fields into matching-safe text."""
+    if value in (None, ''):
+        return ''
+    if isinstance(value, (list, tuple, set)):
+        return ' '.join(str(item).strip() for item in value if str(item).strip())
+    return str(value).strip()
+
+
 def build_campaign_matching_text(campaign):
     """Build a rich text blob representing campaign intent."""
     return ' '.join(
-        filter(
-            None,
-            [
-                campaign.get('name'),
-                campaign.get('brief_text'),
-                campaign.get('target_audience'),
-                campaign.get('goals'),
-                campaign.get('platforms'),
-                campaign.get('budget_range'),
-            ],
-        )
+        part for part in [
+            _stringify_matching_value(campaign.get('name')),
+            _stringify_matching_value(campaign.get('brief_text')),
+            _stringify_matching_value(campaign.get('target_audience')),
+            _stringify_matching_value(campaign.get('goals')),
+            _stringify_matching_value(campaign.get('platforms')),
+            _stringify_matching_value(campaign.get('budget_range')),
+            _stringify_matching_value(campaign.get('milestone_views_target')),
+            _stringify_matching_value(campaign.get('milestone_views')),
+            _stringify_matching_value(campaign.get('timeline')),
+            _stringify_matching_value(campaign.get('timeline_requirements')),
+        ] if part
     )
 
 
 def build_creator_matching_text(influencer_profile):
     """Build a rich text blob representing creator identity and audience fit."""
     return ' '.join(
-        filter(
-            None,
-            [
-                influencer_profile.get('niche'),
-                influencer_profile.get('bio'),
-                influencer_profile.get('content_description'),
-                influencer_profile.get('audience_interests'),
-                influencer_profile.get('audience_age'),
-                influencer_profile.get('audience_gender'),
-                influencer_profile.get('audience_location'),
-                influencer_profile.get('channel_description'),
-                influencer_profile.get('sample_video_transcript'),
-                influencer_profile.get('platform'),
-                influencer_profile.get('availability'),
-            ],
-        )
+        part for part in [
+            _stringify_matching_value(influencer_profile.get('niche')),
+            _stringify_matching_value(influencer_profile.get('bio')),
+            _stringify_matching_value(influencer_profile.get('content_description')),
+            _stringify_matching_value(influencer_profile.get('audience_interests')),
+            _stringify_matching_value(influencer_profile.get('audience_age')),
+            _stringify_matching_value(influencer_profile.get('audience_gender')),
+            _stringify_matching_value(influencer_profile.get('audience_location')),
+            _stringify_matching_value(influencer_profile.get('channel_description')),
+            _stringify_matching_value(influencer_profile.get('sample_video_transcript')),
+            _stringify_matching_value(influencer_profile.get('platform')),
+            _stringify_matching_value(influencer_profile.get('availability')),
+        ] if part
     )
 
 
@@ -135,13 +145,189 @@ def parse_budget_value(range_text):
     return float(sum(numbers[:2]) / 2)
 
 
-def score_platform_alignment(campaign_platforms, creator_platform):
-    """Score how well the requested platforms match the creator's main platform."""
-    if not campaign_platforms or not creator_platform:
+def clamp01(value):
+    """Clamp any numeric value to the 0-1 range."""
+    return min(1.0, max(0.0, float(value or 0.0)))
+
+
+def safe_float(value, default=0.0):
+    """Safely coerce values into floats."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return float(default)
+
+
+def normalize_metric(value, minimum, maximum, default=0.5):
+    """Min-max normalize a value while handling flat or missing cohorts."""
+    if value is None:
+        return float(default)
+    minimum = safe_float(minimum, value)
+    maximum = safe_float(maximum, value)
+    value = safe_float(value, default)
+    if maximum <= minimum:
+        return float(default)
+    return clamp01((value - minimum) / max(maximum - minimum, 1e-9))
+
+
+def _parse_platforms(value):
+    """Normalize campaign platform input into a lowercase list."""
+    if isinstance(value, (list, tuple, set)):
+        return [normalize_text(item) for item in value if normalize_text(item)]
+    return [part.strip().lower() for part in str(value or '').split(',') if part.strip()]
+
+
+def fallback_creator_rate(campaign, influencer_profile):
+    """Estimate an asking price when explicit rate data is missing."""
+    explicit_rate = parse_budget_value(
+        influencer_profile.get('asking_price')
+        or influencer_profile.get('rate')
+        or influencer_profile.get('rate_range')
+    )
+    if explicit_rate is not None:
+        return explicit_rate
+
+    campaign_budget = parse_budget_value(campaign.get('budget_range'))
+    if campaign_budget is not None:
+        return campaign_budget
+
+    niche = normalize_text(influencer_profile.get('niche') or campaign.get('niche') or '')
+    default_rates = {
+        'beauty': 120000.0,
+        'fashion': 115000.0,
+        'fitness': 105000.0,
+        'tech': 140000.0,
+        'food': 95000.0,
+        'travel': 110000.0,
+        'gaming': 125000.0,
+        'education': 100000.0,
+        'business': 135000.0,
+        'sports': 115000.0,
+        'lifestyle': 90000.0,
+    }
+    return default_rates.get(niche, 85000.0)
+
+
+def compute_roi_value(predicted_views, creator_rate, campaign=None, influencer_profile=None):
+    """Compute raw ROI as expected views per unit of asking price."""
+    asking_price = parse_budget_value(creator_rate)
+    if asking_price is None:
+        asking_price = fallback_creator_rate(campaign or {}, influencer_profile or {})
+    return safe_float(predicted_views, 0.0) / max(safe_float(asking_price, 0.0), 1.0)
+
+
+def engagement_score_from_rate(engagement_rate):
+    """Continuously score engagement with a conservative default when missing."""
+    rate = safe_float(engagement_rate, 3.5)
+    if rate <= 0:
+        rate = 3.5
+    return clamp01(rate / 10.0)
+
+
+def _extract_age_range(text):
+    """Extract a simple age range from free-form audience text."""
+    normalized = normalize_text(text)
+    if not normalized:
+        return None
+
+    explicit_ranges = re.findall(r'(\d{1,2})\s*(?:-|to)\s*(\d{1,2})', normalized)
+    if explicit_ranges:
+        low = min(int(start) for start, _ in explicit_ranges)
+        high = max(int(end) for _, end in explicit_ranges)
+        return low, high
+
+    ages = [int(match) for match in re.findall(r'\b([1-6]\d)\b', normalized)]
+    if ages:
+        return min(ages), max(ages)
+    return None
+
+
+def _score_age_alignment(campaign_text, creator_text):
+    """Score overlap between campaign and creator audience age ranges."""
+    campaign_range = _extract_age_range(campaign_text)
+    creator_range = _extract_age_range(creator_text)
+    if not campaign_range or not creator_range:
         return 0.5
 
-    platforms = [part.strip().lower() for part in str(campaign_platforms).split(',') if part.strip()]
-    return 1.0 if creator_platform.lower() in platforms else 0.0
+    overlap_start = max(campaign_range[0], creator_range[0])
+    overlap_end = min(campaign_range[1], creator_range[1])
+    if overlap_end < overlap_start:
+        return 0.15
+
+    overlap = overlap_end - overlap_start + 1
+    union = max(campaign_range[1], creator_range[1]) - min(campaign_range[0], creator_range[0]) + 1
+    return clamp01(overlap / max(union, 1))
+
+
+def _extract_gender_hint(text):
+    """Extract broad gender targeting hints from text."""
+    normalized = normalize_text(text)
+    if not normalized:
+        return ''
+    if any(token in normalized for token in ('women', 'woman', 'female', 'girls', 'girl')):
+        return 'female'
+    if any(token in normalized for token in ('men', 'man', 'male', 'boys', 'boy')):
+        return 'male'
+    if any(token in normalized for token in ('all genders', 'everyone', 'general audience', 'all')):
+        return 'all'
+    return ''
+
+
+def _score_gender_alignment(campaign_text, creator_gender_text):
+    """Score how well campaign gender intent aligns with creator audience gender."""
+    campaign_gender = _extract_gender_hint(campaign_text)
+    creator_gender = _extract_gender_hint(creator_gender_text)
+
+    if not campaign_gender or not creator_gender:
+        return 0.5
+    if campaign_gender == 'all' or creator_gender == 'all':
+        return 0.75
+    if campaign_gender == creator_gender:
+        return 1.0
+    return 0.2
+
+
+def _score_location_alignment(campaign_text, creator_location_text):
+    """Score whether location hints appear aligned."""
+    campaign_location = normalize_text(campaign_text)
+    creator_location = normalize_text(creator_location_text)
+    if not campaign_location or not creator_location:
+        return 0.5
+
+    creator_parts = [part.strip() for part in re.split(r'[,/|-]', creator_location) if part.strip()]
+    if any(part and part in campaign_location for part in creator_parts):
+        return 1.0
+    return 0.4
+
+
+def score_follower_scale(followers, minimum=None, maximum=None):
+    """Score followers continuously using log scaling."""
+    follower_value = max(safe_float(followers, 0.0), 0.0)
+    log_value = math.log1p(follower_value)
+    if minimum is not None and maximum is not None:
+        return normalize_metric(log_value, math.log1p(max(minimum, 0.0)), math.log1p(max(maximum, 0.0)), default=0.5)
+    return normalize_metric(log_value, math.log1p(1000), math.log1p(10000000), default=0.5)
+
+
+def score_platform_alignment(campaign_platforms, creator_platform):
+    """Score exact, related, or weak platform fit."""
+    creator = normalize_text(creator_platform)
+    platforms = _parse_platforms(campaign_platforms)
+    if not platforms or not creator:
+        return 0.4
+
+    if creator in platforms:
+        return 1.0
+
+    related_map = {
+        'instagram': {'tiktok', 'youtube'},
+        'youtube': {'instagram', 'tiktok'},
+        'tiktok': {'instagram', 'youtube'},
+        'twitter': {'instagram'},
+    }
+    if any(creator in related_map.get(platform, set()) for platform in platforms):
+        return 0.7
+    return 0.4
 
 
 def score_budget_alignment(campaign_budget, creator_rate):
@@ -157,59 +343,60 @@ def score_budget_alignment(campaign_budget, creator_rate):
 
 
 def score_audience_alignment(campaign, influencer_profile):
-    """Score alignment between target audience and creator audience descriptors."""
-    campaign_audience = ' '.join(
-        filter(None, [campaign.get('target_audience'), campaign.get('goals')])
+    """Score audience alignment from age, gender, and location with safe fallbacks."""
+    campaign_text = ' '.join(
+        filter(None, [campaign.get('target_audience'), campaign.get('brief_text'), campaign.get('goals')])
     )
-    creator_audience = ' '.join(
-        filter(
-            None,
-            [
-                influencer_profile.get('audience_age'),
-                influencer_profile.get('audience_gender'),
-                influencer_profile.get('audience_location'),
-                influencer_profile.get('audience_interests'),
-                influencer_profile.get('bio'),
-            ],
-        )
+    creator_age = influencer_profile.get('audience_age')
+    creator_gender = influencer_profile.get('audience_gender')
+    creator_location = influencer_profile.get('audience_location')
+
+    age_score = _score_age_alignment(campaign_text, creator_age)
+    gender_score = _score_gender_alignment(campaign_text, creator_gender)
+    location_score = _score_location_alignment(campaign_text, creator_location)
+
+    if not creator_age and not creator_gender and not creator_location:
+        return 0.5
+
+    return round(
+        clamp01((age_score * 0.45) + (gender_score * 0.25) + (location_score * 0.30)),
+        4,
     )
-    if not campaign_audience or not creator_audience:
-        return 0.45
-    return min(1.0, local_semantic_similarity(campaign_audience, creator_audience) * 1.35)
 
 
 def score_creator_quality(influencer_profile):
-    """Score creator quality using audience scale and engagement."""
-    followers = influencer_profile.get('follower_count') or 0
-    engagement_rate = influencer_profile.get('engagement_rate') or 0
+    """Score creator content quality from consistency, performance, and completion history."""
+    precomputed = influencer_profile.get('content_quality_score')
+    if precomputed not in (None, ''):
+        return round(clamp01(precomputed), 4)
 
-    follower_score = 0.25
-    if followers >= 250000:
-        follower_score = 1.0
-    elif followers >= 100000:
-        follower_score = 0.85
-    elif followers >= 25000:
-        follower_score = 0.7
-    elif followers >= 5000:
-        follower_score = 0.55
-    elif followers >= 1000:
-        follower_score = 0.4
+    video_count = max(safe_float(influencer_profile.get('video_count'), 0.0), 0.0)
+    follower_count = max(safe_float(influencer_profile.get('follower_count'), 0.0), 1.0)
+    total_views = max(safe_float(influencer_profile.get('total_views'), 0.0), 0.0)
+    avg_views = safe_float(influencer_profile.get('average_views'), 0.0)
+    if avg_views <= 0 and video_count > 0:
+        avg_views = total_views / max(video_count, 1.0)
 
-    engagement_score = 0.25
-    if engagement_rate >= 8:
-        engagement_score = 1.0
-    elif engagement_rate >= 5:
-        engagement_score = 0.85
-    elif engagement_rate >= 3:
-        engagement_score = 0.65
-    elif engagement_rate >= 1.5:
-        engagement_score = 0.45
+    consistency_score = clamp01(video_count / 60.0)
+    performance_ratio = avg_views / max(follower_count, 1.0)
+    performance_score = clamp01(performance_ratio / 1.2)
 
-    return round((follower_score * 0.55) + (engagement_score * 0.45), 4)
+    completion_rate = influencer_profile.get('completion_rate')
+    if completion_rate in (None, ''):
+        completion_rate = influencer_profile.get('past_completion_rate')
+    completion_rate = safe_float(completion_rate, 0.6)
+    if completion_rate > 1:
+        completion_rate /= 100.0
+    completion_score = clamp01(completion_rate)
+
+    return round(
+        clamp01((consistency_score * 0.30) + (performance_score * 0.45) + (completion_score * 0.25)),
+        4,
+    )
 
 
 def calculate_enhanced_match_score(campaign, influencer_profile, semantic_similarity=None):
-    """Weighted semantic match score for campaign-to-creator ranking."""
+    """Weighted creator-campaign match score using the normalized ranking inputs."""
     campaign_text = build_campaign_matching_text(campaign)
     creator_text = build_creator_matching_text(influencer_profile)
     semantic_score = (
@@ -218,23 +405,55 @@ def calculate_enhanced_match_score(campaign, influencer_profile, semantic_simila
         else local_semantic_similarity(campaign_text, creator_text)
     )
 
-    platform_score = score_platform_alignment(campaign.get('platforms'), influencer_profile.get('platform'))
-    budget_score = score_budget_alignment(campaign.get('budget_range'), influencer_profile.get('rate_range'))
-    audience_score = score_audience_alignment(campaign, influencer_profile)
-    quality_score = score_creator_quality(influencer_profile)
+    roi_score = influencer_profile.get('roi_score')
+    if roi_score in (None, ''):
+        roi_score = 0.5
 
-    availability = (influencer_profile.get('availability') or 'available').lower()
-    availability_score = 1.0 if availability == 'available' else 0.6 if availability == 'busy' else 0.2
+    engagement_score = influencer_profile.get('engagement_score')
+    if engagement_score in (None, ''):
+        engagement_score = engagement_score_from_rate(influencer_profile.get('engagement_rate'))
+
+    audience_score = influencer_profile.get('audience_match_score')
+    if audience_score in (None, ''):
+        audience_score = score_audience_alignment(campaign, influencer_profile)
+
+    follower_score = influencer_profile.get('follower_score')
+    if follower_score in (None, ''):
+        follower_score = score_follower_scale(influencer_profile.get('follower_count'))
+
+    content_quality_score = influencer_profile.get('content_quality_score')
+    if content_quality_score in (None, ''):
+        content_quality_score = score_creator_quality(influencer_profile)
+
+    platform_score = influencer_profile.get('platform_match_score')
+    if platform_score in (None, ''):
+        platform_score = score_platform_alignment(campaign.get('platforms'), influencer_profile.get('platform'))
 
     weighted_score = (
-        (semantic_score * 0.42)
-        + (platform_score * 0.13)
-        + (budget_score * 0.1)
-        + (audience_score * 0.15)
-        + (quality_score * 0.15)
-        + (availability_score * 0.05)
+        (semantic_score * 0.25)
+        + (safe_float(roi_score, 0.5) * 0.20)
+        + (safe_float(engagement_score, 0.35) * 0.15)
+        + (safe_float(audience_score, 0.5) * 0.15)
+        + (safe_float(follower_score, 0.5) * 0.10)
+        + (safe_float(content_quality_score, 0.5) * 0.10)
+        + (safe_float(platform_score, 0.4) * 0.05)
     )
-    return round(min(max(weighted_score, 0.0), 1.0), 4)
+
+    niche_tier = influencer_profile.get('niche_tier')
+    if niche_tier == 1:
+        weighted_score *= 1.10
+
+    engagement_rate = safe_float(influencer_profile.get('engagement_rate'), 3.5)
+    if engagement_rate > 6 and safe_float(roi_score, 0.0) >= 0.7:
+        weighted_score *= 1.08
+
+    pricing_label = (influencer_profile.get('prediction', {}) or {}).get('pricing_fairness', {}).get('label')
+    if safe_float(roi_score, 0.0) < 0.35 or pricing_label == 'overpriced':
+        weighted_score *= 0.90
+    if engagement_rate < 1.5:
+        weighted_score *= 0.92
+
+    return round(clamp01(weighted_score), 4)
 
 
 def assess_pricing_fairness(predicted_views, creator_rate, engagement_rate):
@@ -339,18 +558,23 @@ def summarize_match_reasons(campaign, influencer_profile, semantic_similarity=No
         semantic_similarity = local_semantic_similarity(
             build_campaign_matching_text(campaign),
             build_creator_matching_text(influencer_profile),
-        )
+    )
     prediction = prediction or {}
+
+    if influencer_profile.get('niche_tier') == 1:
+        reasons.append('Same niche as the campaign, so relevance is especially strong.')
+    elif influencer_profile.get('niche_tier') == 2:
+        reasons.append('Related niche fit keeps the creator relevant to the campaign.')
 
     if semantic_similarity >= 0.45:
         reasons.append('Strong semantic fit between campaign brief and creator profile.')
     if score_platform_alignment(campaign.get('platforms'), influencer_profile.get('platform')) >= 1:
         reasons.append(f"Platform alignment on {influencer_profile.get('platform', 'the requested platform')}.")
-    if score_budget_alignment(campaign.get('budget_range'), influencer_profile.get('rate_range')) >= 0.7:
-        reasons.append('Creator pricing is close to the campaign budget.')
-    if score_audience_alignment(campaign, influencer_profile) >= 0.45:
+    if influencer_profile.get('roi_score', 0) >= 0.7:
+        reasons.append('Projected ROI is strong relative to the creator asking price.')
+    if score_audience_alignment(campaign, influencer_profile) >= 0.55:
         reasons.append('Audience signals line up with the target market.')
-    if (influencer_profile.get('engagement_rate') or 0) >= 4:
+    if engagement_score_from_rate(influencer_profile.get('engagement_rate')) >= 0.6:
         reasons.append('Above-average engagement suggests strong audience response.')
 
     pricing = prediction.get('pricing_fairness', {})

@@ -146,16 +146,72 @@
         </div>
     </div>
 
+    <div id="deleteCampaignModal" class="modal-overlay">
+        <div class="modal-content delete-modal-content">
+            <span class="modal-close" onclick="closeDeleteCampaignModal()">&times;</span>
+            <h2 style="margin-bottom:0.5rem;">Delete Campaign?</h2>
+            <p id="deleteCampaignMessage" style="color:var(--text-secondary);line-height:1.6;">This action will permanently remove the campaign and its related offers.</p>
+            <div style="margin-top:2rem;display:flex;gap:1rem;justify-content:flex-end;flex-wrap:wrap;">
+                <button class="btn-secondary" onclick="closeDeleteCampaignModal()">No</button>
+                <button class="btn-primary btn-danger-soft" id="confirmDeleteCampaignBtn" onclick="confirmDeleteCampaign()">Yes, Delete</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js"></script>
     <script src="js/config.js"></script>
     <script src="js/notifications.js"></script>
     <script src="js/profile-menu.js"></script>
+    <script src="js/chatbot.js"></script>
     <script>
         const supabaseClient = window.ReachIQ.createSupabaseClient();
 
         // Global arrays to store data for modals
         let dashboardCampaigns = [];
         let dashboardOffers = [];
+        let pendingCampaignDelete = null;
+
+        function escapeAttribute(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        function initialsFromName(name = '') {
+            const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+            if (!parts.length) return 'CR';
+            return parts.slice(0, 2).map(part => part[0]).join('').toUpperCase();
+        }
+
+        function renderCreatorAvatarStack(offers = []) {
+            const creators = [];
+            const seen = new Set();
+            (offers || []).forEach((offer) => {
+                const creator = offer.influencer || {};
+                const creatorKey = creator.id || creator.username || creator.full_name;
+                if (!creatorKey || seen.has(creatorKey)) return;
+                seen.add(creatorKey);
+                creators.push(creator);
+            });
+            if (!creators.length) return '';
+
+            const items = creators.slice(0, 3).map((creator, index) => {
+                const name = creator.full_name || creator.username || 'Creator';
+                const inner = creator.avatar_url
+                    ? `<img src="${creator.avatar_url}" alt="${escapeAttribute(name)}" class="campaign-mini-avatar-image">`
+                    : `<span class="campaign-mini-avatar-fallback">${initialsFromName(name)}</span>`;
+                return `<span class="campaign-mini-avatar" style="z-index:${10 - index};">${inner}</span>`;
+            }).join('');
+
+            const overflow = creators.length > 3
+                ? `<span class="campaign-mini-avatar campaign-mini-avatar-more">+${creators.length - 3}</span>`
+                : '';
+
+            return `<div class="campaign-avatar-stack">${items}${overflow}</div>`;
+        }
 
         async function checkAuth() {
             const auth = await window.ReachIQ.requireRole(supabaseClient, 'brand');
@@ -187,10 +243,17 @@
 
         async function loadUserCampaigns(userId) {
             try {
-                const { data: campaigns, error } = await supabaseClient.from('campaigns').select('*').eq('brand_id', userId).order('created_at', { ascending: false }).limit(3);
-                if (error) throw error;
-                
-                dashboardCampaigns = campaigns || []; // Save for modal
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session) throw new Error('No session found');
+
+                const response = await fetch('/api/brand/campaigns', {
+                    headers: { 'Authorization': `Bearer ${session.access_token}` }
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || 'Failed to load campaigns');
+
+                const campaigns = (payload.campaigns || []).slice(0, 3);
+                dashboardCampaigns = campaigns || [];
 
                 const campaignsGrid = document.getElementById('recentCampaigns');
                 if (!campaigns || campaigns.length === 0) {
@@ -200,8 +263,23 @@
                 campaignsGrid.innerHTML = campaigns.map(campaign => `
                     <div class="campaign-card">
                         <div class="campaign-header">
-                            <h3>${campaign.name}</h3>
-                            <span class="status-badge ${campaign.status}">${campaign.status}</span>
+                            <div class="campaign-header-main">
+                                <div class="campaign-title-group">
+                                    ${renderCreatorAvatarStack(campaign.offers)}
+                                    <h3>${campaign.name}</h3>
+                                </div>
+                                <span class="status-badge ${campaign.status}">${campaign.status}</span>
+                            </div>
+                            <button class="card-edit-btn" type="button" title="Edit campaign" aria-label="Edit ${escapeAttribute(campaign.name)}" onclick="editCampaign('${campaign.id}')">
+                                <svg viewBox="0 0 24 24" aria-hidden="true" class="card-edit-icon">
+                                    <path d="M15.45 5.05 18.95 8.55 9.5 18H6v-3.5l9.45-9.45Zm1.06-1.06 1.19-1.19a1.5 1.5 0 0 1 2.12 0l1.38 1.38a1.5 1.5 0 0 1 0 2.12l-1.19 1.19-3.5-3.5Z" fill="currentColor"/>
+                                </svg>
+                            </button>
+                            <button class="card-delete-btn" type="button" title="Delete campaign" aria-label="Delete ${escapeAttribute(campaign.name)}" data-campaign-name="${escapeAttribute(campaign.name)}" onclick="openDeleteCampaignModal('${campaign.id}', this.dataset.campaignName)">
+                                <svg viewBox="0 0 24 24" aria-hidden="true" class="card-delete-icon">
+                                    <path d="M9 3.75h6a1 1 0 0 1 1 1V6h3a.75.75 0 0 1 0 1.5h-1.05l-.84 11.33A2.25 2.25 0 0 1 14.86 21H9.14a2.25 2.25 0 0 1-2.25-2.17L6.05 7.5H5a.75.75 0 0 1 0-1.5h3V4.75a1 1 0 0 1 1-1Zm5.5 2.25V5.25h-5V6h5ZM8.39 7.5l.82 11.22a.75.75 0 0 0 .75.72h5.08a.75.75 0 0 0 .75-.72l.82-11.22H8.39ZM10.5 10a.75.75 0 0 1 .75.75v5.5a.75.75 0 0 1-1.5 0v-5.5A.75.75 0 0 1 10.5 10Zm3.75 0a.75.75 0 0 1 .75.75v5.5a.75.75 0 0 1-1.5 0v-5.5a.75.75 0 0 1 .75-.75Z" fill="currentColor"/>
+                                </svg>
+                            </button>
                         </div>
                         <p class="campaign-description">${campaign.brief_text ? campaign.brief_text.substring(0, 110) + '...' : 'No description'}</p>
                         <div class="campaign-meta">
@@ -276,6 +354,7 @@
         }
 
         function findMatchingInfluencers(campaignId) { window.location.href = `creator-discovery.html?campaign=${campaignId}`; }
+        function editCampaign(campaignId) { window.location.href = `create-campaign.html?edit=${campaignId}`; }
         function followUpOffer(offerId) { window.location.href = 'brand-offers.html'; }
 
         // --- NEW MODAL FUNCTIONS ---
@@ -319,9 +398,46 @@
             document.getElementById('offerModal').style.display = 'none';
         }
 
+        function openDeleteCampaignModal(campaignId, campaignName) {
+            pendingCampaignDelete = { campaignId, campaignName };
+            document.getElementById('deleteCampaignMessage').textContent = `Delete "${campaignName}" and its related offers? This cannot be undone.`;
+            document.getElementById('deleteCampaignModal').style.display = 'flex';
+        }
+
+        function closeDeleteCampaignModal() {
+            pendingCampaignDelete = null;
+            const confirmBtn = document.getElementById('confirmDeleteCampaignBtn');
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'Yes, Delete';
+            document.getElementById('deleteCampaignModal').style.display = 'none';
+        }
+
+        async function confirmDeleteCampaign() {
+            if (!pendingCampaignDelete?.campaignId) return;
+            const confirmBtn = document.getElementById('confirmDeleteCampaignBtn');
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = 'Deleting...';
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                const response = await fetch(window.ReachIQ.apiUrl(`/campaigns/${pendingCampaignDelete.campaignId}`), {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${session.access_token}` }
+                });
+                const payload = await window.ReachIQ.parseJsonResponse(response);
+                if (!response.ok) throw new Error(payload.error || 'Failed to delete campaign');
+                closeDeleteCampaignModal();
+                await loadDashboardData();
+            } catch (error) {
+                alert(error.message);
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = 'Yes, Delete';
+            }
+        }
+
         window.onclick = function(event) {
             if (event.target.classList.contains('modal-overlay')) {
                 closeModals();
+                closeDeleteCampaignModal();
             }
         }
 
@@ -348,10 +464,73 @@
         }
         .campaign-card:hover { border-color: var(--border); background: rgba(255,255,255,0.06); transform: translateY(-2px); }
         .campaign-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; gap: 0.5rem; }
-        .campaign-header h3 { font-size: 1rem; color: var(--text-primary); margin: 0; }
-        .campaign-description { color: var(--text-muted); font-size: 0.85rem; line-height: 1.5; margin-bottom: 1rem; }
-        .campaign-meta { color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.25rem; }
+        .campaign-header-main { display:flex; flex-direction:column; gap:0.55rem; min-width:0; align-items:flex-start; }
+        .campaign-title-group { display:flex; align-items:center; gap:0.7rem; min-width:0; }
+        .campaign-header h3 { font-size: 1.18rem; color: var(--text-primary); margin: 0; line-height: 1.25; }
+        .campaign-avatar-stack { display:flex; align-items:center; flex-shrink:0; }
+        .campaign-mini-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            overflow: hidden;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.12);
+            box-shadow: 0 6px 18px rgba(4, 8, 18, 0.28);
+            margin-left: -8px;
+        }
+        .campaign-mini-avatar:first-child { margin-left: 0; }
+        .campaign-mini-avatar-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .campaign-mini-avatar-fallback,
+        .campaign-mini-avatar-more {
+            width: 100%;
+            height: 100%;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            font-size: 0.62rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            background: linear-gradient(135deg, rgba(212,168,83,0.24), rgba(77,217,192,0.18));
+        }
+        .campaign-mini-avatar-more {
+            font-size: 0.66rem;
+            color: var(--text-secondary);
+            background: rgba(255,255,255,0.08);
+        }
+        .campaign-description { color: var(--text-secondary); font-size: 0.92rem; line-height: 1.6; margin-bottom: 1rem; }
+        .campaign-meta { color: var(--text-secondary); font-size: 0.86rem; margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.35rem; }
         .campaign-actions { display: flex; gap: 0.5rem; }
+        .card-edit-btn,
+        .card-delete-btn {
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            flex-shrink: 0;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            line-height: 1;
+            padding: 0.25rem;
+            transition: color 0.2s ease, transform 0.2s ease;
+        }
+        .card-edit-btn { color: rgba(186, 230, 253, 0.92); }
+        .card-delete-btn { color: rgba(251, 191, 204, 0.92); }
+        .card-edit-btn:hover { color: #eff6ff; transform: translateY(-1px); }
+        .card-delete-btn:hover { color: #ffe4e6; transform: translateY(-1px); }
+        .card-edit-icon,
+        .card-delete-icon {
+            width: 1.2rem;
+            height: 1.2rem;
+            display: block;
+        }
 
         .offers-list { display: flex; flex-direction: column; gap: 0.75rem; }
         .offer-item {
@@ -370,10 +549,23 @@
         .offer-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 0.35rem; min-width: 100px; }
         .offer-actions { display: flex; gap: 0.5rem; align-items: center; }
 
-        .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            align-self: flex-start;
+            padding: 6px 16px;
+            border-radius: 999px;
+            font-size: 0.82rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            line-height: 1;
+            min-height: 34px;
+        }
         .status-badge.pending { background: #fef3c7; color: #d97706; }
         .status-badge.draft { background: rgba(255,255,255,0.1); color: #9ca3af; border: 1px solid #4b5563;}
-        .status-badge.active { background: #d1fae5; color: #059669; }
+        .status-badge.active { background: rgba(77, 217, 192, 0.12); color: var(--teal); border: 1px solid rgba(77, 217, 192, 0.28); }
         .status-badge.negotiating { background: #e0e7ff; color: #4f46e5; }
         .status-badge.accepted { background: #d1fae5; color: #059669; }
         .status-badge.rejected { background: #fee2e2; color: #e11d48; }
@@ -400,6 +592,9 @@
         .modal-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.75rem; }
         .modal-list li { color: var(--text-secondary); font-size: 0.95rem; display: flex; gap: 0.5rem; flex-wrap: wrap;}
         .modal-list li strong { color: var(--white); min-width: 140px; }
+        .delete-modal-content { max-width: 520px; }
+        .btn-danger-soft { background: linear-gradient(135deg, #ef4444, #e11d48); border: none; }
+        .btn-danger-soft:hover { filter: brightness(1.06); }
 
         @media (max-width: 768px) {
             .offer-item { grid-template-columns: 1fr; }

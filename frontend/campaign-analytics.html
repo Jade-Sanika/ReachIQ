@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campaign Analytics - ReachIQ</title>
+    <link rel="stylesheet" href="styles/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .analytics-shell {
+            padding-bottom: 3rem;
+        }
+        .analytics-hero {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            margin-bottom: 1.75rem;
+        }
+        .analytics-subtitle {
+            color: var(--text-secondary);
+            max-width: 780px;
+            margin-top: 0.45rem;
+        }
+        .analytics-grid {
+            display: grid;
+            gap: 1.15rem;
+        }
+        .metric-grid {
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        }
+        .metric-card,
+        .chart-card,
+        .insight-card,
+        .table-card {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: 1.2rem;
+            backdrop-filter: blur(12px);
+        }
+        .metric-card span,
+        .chart-card .eyebrow,
+        .insight-card .eyebrow,
+        .table-card .eyebrow {
+            display: inline-block;
+            color: var(--gold-light);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-size: 0.72rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        .metric-card strong {
+            display: block;
+            font-size: 1.55rem;
+            color: var(--text-primary);
+        }
+        .metric-card small {
+            color: var(--text-secondary);
+            display: block;
+            margin-top: 0.5rem;
+            line-height: 1.5;
+        }
+        .charts-grid {
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            align-items: stretch;
+        }
+        .chart-card canvas {
+            width: 100% !important;
+            height: 260px !important;
+            margin-top: 1rem;
+        }
+        .progress-stack {
+            display: grid;
+            gap: 1rem;
+            margin-top: 0.75rem;
+        }
+        .progress-block {
+            padding: 1rem;
+            border-radius: var(--radius);
+            background: rgba(248,244,239,0.04);
+            border: 1px solid var(--border-subtle);
+        }
+        .progress-topline {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            align-items: center;
+            color: var(--text-primary);
+            font-weight: 600;
+            margin-bottom: 0.65rem;
+        }
+        .progress-meta {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        .timeline-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.55rem 0.85rem;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin-top: 0.9rem;
+        }
+        .timeline-pill.success {
+            background: rgba(77,217,192,0.12);
+            color: var(--teal);
+            border: 1px solid rgba(77,217,192,0.28);
+        }
+        .timeline-pill.pending {
+            background: rgba(244,195,72,0.12);
+            color: #f4c348;
+            border: 1px solid rgba(244,195,72,0.28);
+        }
+        .timeline-pill.danger {
+            background: rgba(244,100,122,0.12);
+            color: var(--danger);
+            border: 1px solid rgba(244,100,122,0.28);
+        }
+        .insights-grid {
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        }
+        .insight-card strong {
+            display: block;
+            color: var(--text-primary);
+            font-size: 1.1rem;
+        }
+        .insight-card p {
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-top: 0.55rem;
+        }
+        .highlight-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.55rem;
+            margin-top: 0.85rem;
+        }
+        .highlight-chip {
+            padding: 0.5rem 0.8rem;
+            border-radius: 999px;
+            background: rgba(248,244,239,0.08);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .highlight-chip.success {
+            border-color: rgba(77,217,192,0.28);
+            color: var(--teal);
+            background: rgba(77,217,192,0.1);
+        }
+        .highlight-chip.warning {
+            border-color: rgba(244,195,72,0.28);
+            color: #f4c348;
+            background: rgba(244,195,72,0.1);
+        }
+        .highlight-chip.danger {
+            border-color: rgba(244,100,122,0.28);
+            color: var(--danger);
+            background: rgba(244,100,122,0.1);
+        }
+        .creator-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        .creator-table th,
+        .creator-table td {
+            padding: 0.9rem 0.75rem;
+            border-bottom: 1px solid var(--border-subtle);
+            text-align: left;
+            vertical-align: top;
+        }
+        .creator-table th {
+            color: var(--gold-light);
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .creator-table td {
+            color: var(--text-secondary);
+        }
+        .creator-table td strong {
+            color: var(--text-primary);
+        }
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.38rem 0.72rem;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-transform: capitalize;
+            border: 1px solid transparent;
+        }
+        .status-pill.success {
+            color: var(--teal);
+            background: rgba(77,217,192,0.1);
+            border-color: rgba(77,217,192,0.2);
+        }
+        .status-pill.pending {
+            color: #f4c348;
+            background: rgba(244,195,72,0.1);
+            border-color: rgba(244,195,72,0.2);
+        }
+        .status-pill.danger {
+            color: var(--danger);
+            background: rgba(244,100,122,0.1);
+            border-color: rgba(244,100,122,0.2);
+        }
+        .analytics-empty {
+            text-align: center;
+            padding: 3rem 2rem;
+        }
+        .analytics-empty h3 {
+            color: var(--text-primary);
+            margin-bottom: 0.6rem;
+        }
+        .analytics-empty p {
+            color: var(--text-secondary);
+        }
+        @media (max-width: 720px) {
+            .creator-table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-animation"></div>
+    <div class="container analytics-shell">
+        <header class="dashboard-header analytics-hero">
+            <div>
+                <p style="color:var(--gold);font-size:0.8rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.4rem;">Campaign Intelligence</p>
+                <h1 id="analyticsCampaignTitle">Campaign Analytics</h1>
+                <p id="analyticsCampaignSubtitle" class="analytics-subtitle">Loading campaign performance, payouts, and milestone insights.</p>
+            </div>
+            <div style="display:flex;gap:0.8rem;flex-wrap:wrap;">
+                <a href="brand-campaigns.html" class="btn-secondary">Back to Campaigns</a>
+            </div>
+        </header>
+
+        <div id="analyticsLoading" class="empty-state">
+            <div class="loading-spinner"></div>
+            <p>Loading campaign analytics dashboard...</p>
+        </div>
+
+        <div id="analyticsEmpty" class="metric-card analytics-empty" style="display:none;">
+            <h3>No creator data yet</h3>
+            <p>This campaign does not have linked creators or submissions yet. Add creators to unlock analytics.</p>
+        </div>
+
+        <div id="analyticsContent" style="display:none;">
+            <section class="analytics-grid metric-grid">
+                <article class="metric-card">
+                    <span>Total Creators</span>
+                    <strong id="metricCreators">0</strong>
+                    <small>Creators currently linked to this campaign.</small>
+                </article>
+                <article class="metric-card">
+                    <span>Submissions</span>
+                    <strong id="metricSubmissions">0 / 0</strong>
+                    <small>Submitted videos versus expected deliverables.</small>
+                </article>
+                <article class="metric-card">
+                    <span>Milestones Hit</span>
+                    <strong id="metricMilestones">0</strong>
+                    <small>Creators who already crossed the milestone target.</small>
+                </article>
+                <article class="metric-card">
+                    <span>Budget Used</span>
+                    <strong id="metricSpend">₹0</strong>
+                    <small>Total released or in-flight payout against the campaign budget.</small>
+                </article>
+                <article class="metric-card">
+                    <span>Avg Payout</span>
+                    <strong id="metricAvgPayout">₹0</strong>
+                    <small>Average payout amount per linked creator.</small>
+                </article>
+                <article class="metric-card">
+                    <span>Cost / Milestone</span>
+                    <strong id="metricCostPerMilestone">₹0</strong>
+                    <small>How much spend it takes to reach each milestone hit.</small>
+                </article>
+            </section>
+
+            <section class="analytics-grid charts-grid" style="margin-top:1.25rem;">
+                <article class="chart-card">
+                    <span class="eyebrow">Delivery Progress</span>
+                    <h3>Campaign Progress Snapshot</h3>
+                    <div class="progress-stack">
+                        <div class="progress-block">
+                            <div class="progress-topline">
+                                <span>Submitted Videos</span>
+                                <strong id="submissionProgressLabel">0 / 0</strong>
+                            </div>
+                            <div class="completion-bar"><div id="submissionProgressFill" class="completion-fill" style="width:0%"></div></div>
+                            <p class="progress-meta">How many linked creators already submitted their deliverable.</p>
+                        </div>
+                        <div class="progress-block">
+                            <div class="progress-topline">
+                                <span>Milestone Progress</span>
+                                <strong id="milestoneProgressLabel">0 / 0 views</strong>
+                            </div>
+                            <div class="completion-bar"><div id="milestoneProgressFill" class="completion-fill" style="width:0%"></div></div>
+                            <p class="progress-meta" id="milestoneProgressMeta">Tracks total campaign views against the saved milestone target.</p>
+                        </div>
+                    </div>
+                    <div id="timelineStatusPill" class="timeline-pill pending">Timeline loading...</div>
+                </article>
+
+                <article class="chart-card">
+                    <span class="eyebrow">Escrow</span>
+                    <h3>Escrow Status Distribution</h3>
+                    <canvas id="escrowStatusChart"></canvas>
+                </article>
+
+                <article class="chart-card">
+                    <span class="eyebrow">Delivery</span>
+                    <h3>Submission Status</h3>
+                    <canvas id="submissionStatusChart"></canvas>
+                </article>
+
+                <article class="chart-card">
+                    <span class="eyebrow">Budget</span>
+                    <h3>Budget Utilization</h3>
+                    <canvas id="budgetUtilizationChart"></canvas>
+                </article>
+
+                <article class="chart-card">
+                    <span class="eyebrow">Payout Comparison</span>
+                    <h3>Top Earning Creators</h3>
+                    <canvas id="creatorPayoutChart"></canvas>
+                </article>
+
+                <article class="chart-card">
+                    <span class="eyebrow">Performance</span>
+                    <h3>Milestones by Creator</h3>
+                    <canvas id="creatorMilestoneChart"></canvas>
+                </article>
+            </section>
+
+            <section class="analytics-grid insights-grid" style="margin-top:1.25rem;">
+                <article class="insight-card">
+                    <span class="eyebrow">Top Performer</span>
+                    <strong id="insightTopPerformer">Not enough data yet</strong>
+                    <p id="insightTopPerformerText">Waiting for creator tracking data.</p>
+                </article>
+                <article class="insight-card">
+                    <span class="eyebrow">Most Expensive</span>
+                    <strong id="insightMostExpensive">Not enough data yet</strong>
+                    <p id="insightMostExpensiveText">Waiting for payout data.</p>
+                </article>
+                <article class="insight-card">
+                    <span class="eyebrow">Least Efficient</span>
+                    <strong id="insightLeastEfficient">Not enough data yet</strong>
+                    <p id="insightLeastEfficientText">We’ll flag high-cost, low-performance creators here.</p>
+                </article>
+                <article class="insight-card">
+                    <span class="eyebrow">Highlights</span>
+                    <strong>Action Signals</strong>
+                    <div class="highlight-list" id="highlightList"></div>
+                </article>
+            </section>
+
+            <section class="table-card" style="margin-top:1.25rem;">
+                <span class="eyebrow">Creator Breakdown</span>
+                <h3>Creator-Level Performance</h3>
+                <table class="creator-table">
+                    <thead>
+                        <tr>
+                            <th>Creator</th>
+                            <th>Submission</th>
+                            <th>Milestone</th>
+                            <th>Escrow</th>
+                            <th>Payout</th>
+                            <th>Views</th>
+                        </tr>
+                    </thead>
+                    <tbody id="creatorMetricsTableBody"></tbody>
+                </table>
+            </section>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/notifications.js"></script>
+    <script src="js/profile-menu.js"></script>
+    <script src="js/chatbot.js"></script>
+    <script src="js/campaign-analytics-service.js"></script>
+    <script>
+        const supabaseClient = window.ReachIQ.createSupabaseClient();
+        const campaignId = new URLSearchParams(window.location.search).get('campaign');
+        const charts = {};
+
+        function destroyChart(key) {
+            if (charts[key]) {
+                charts[key].destroy();
+                charts[key] = null;
+            }
+        }
+
+        function createBarChart(key, canvasId, data, labelFormatter = value => value) {
+            destroyChart(key);
+            charts[key] = new Chart(document.getElementById(canvasId), {
+                type: 'bar',
+                data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label(context) {
+                                    return `${context.dataset.label}: ${labelFormatter(context.raw)}`;
+                                },
+                            },
+                        },
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#d8d3c6' },
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: '#d8d3c6',
+                                callback: value => labelFormatter(value),
+                            },
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                        },
+                    },
+                },
+            });
+        }
+
+        function createPieChart(key, canvasId, data) {
+            destroyChart(key);
+            charts[key] = new Chart(document.getElementById(canvasId), {
+                type: 'pie',
+                data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#f4efe7' },
+                        },
+                    },
+                },
+            });
+        }
+
+        function formatStatusTone(status) {
+            const normalized = String(status || '').toLowerCase();
+            if (['paid', 'approved', 'submitted', 'completed', 'hit'].includes(normalized)) return 'success';
+            if (['overdue', 'delayed', 'revisions_requested'].includes(normalized)) return 'danger';
+            return 'pending';
+        }
+
+        function renderMetricCards(analytics) {
+            const metrics = analytics.metrics || {};
+            document.getElementById('metricCreators').textContent = metrics.total_creators || 0;
+            document.getElementById('metricSubmissions').textContent = `${metrics.submitted_count || 0} / ${metrics.expected_submissions || 0}`;
+            document.getElementById('metricMilestones').textContent = metrics.milestones_hit_count || 0;
+            document.getElementById('metricSpend').textContent = window.ReachIQ.formatInr(metrics.actual_spend || 0);
+            document.getElementById('metricAvgPayout').textContent = window.ReachIQ.formatInr(metrics.avg_payout_per_creator || 0);
+            document.getElementById('metricCostPerMilestone').textContent = metrics.cost_per_milestone ? window.ReachIQ.formatInr(metrics.cost_per_milestone) : '—';
+
+            const submittedProgress = metrics.expected_submissions ? Math.min(100, ((metrics.submitted_count || 0) / metrics.expected_submissions) * 100) : 0;
+            document.getElementById('submissionProgressLabel').textContent = `${metrics.submitted_count || 0} / ${metrics.expected_submissions || 0}`;
+            document.getElementById('submissionProgressFill').style.width = `${submittedProgress}%`;
+
+            const trackedViews = metrics.tracked_views_total || 0;
+            const milestoneTarget = analytics.campaign?.milestone_views || 0;
+            document.getElementById('milestoneProgressLabel').textContent = `${trackedViews.toLocaleString()} / ${(milestoneTarget || 0).toLocaleString()} views`;
+            document.getElementById('milestoneProgressFill').style.width = `${Math.max(0, Math.min(100, metrics.milestone_progress_percent || 0))}%`;
+            document.getElementById('milestoneProgressMeta').textContent = milestoneTarget
+                ? `${metrics.milestone_progress_percent || 0}% of the campaign milestone target has been reached.`
+                : 'No milestone target is configured for this campaign yet.';
+
+            const timeline = analytics.timeline || {};
+            const timelinePill = document.getElementById('timelineStatusPill');
+            timelinePill.className = `timeline-pill ${timeline.is_overdue ? 'danger' : timeline.status === 'due_soon' ? 'pending' : 'success'}`;
+            if (timeline.days_remaining === null || timeline.days_remaining === undefined) {
+                timelinePill.textContent = 'No deadline configured';
+            } else if (timeline.is_overdue) {
+                timelinePill.textContent = `${Math.abs(timeline.days_remaining)} day(s) overdue`;
+            } else {
+                timelinePill.textContent = `${timeline.days_remaining} day(s) remaining`;
+            }
+        }
+
+        function renderInsights(analytics) {
+            const insights = analytics.insights || {};
+            const metrics = analytics.metrics || {};
+
+            const top = insights.top_performing_creator;
+            document.getElementById('insightTopPerformer').textContent = top ? top.creator_name : 'Not enough data yet';
+            document.getElementById('insightTopPerformerText').textContent = top
+                ? `${top.creator_name} is leading with ${top.tracked_views.toLocaleString()} tracked views and ${top.milestones_achieved} milestone hit(s).`
+                : 'Waiting for creator tracking data.';
+
+            const expensive = insights.most_expensive_creator;
+            document.getElementById('insightMostExpensive').textContent = expensive ? expensive.creator_name : 'Not enough data yet';
+            document.getElementById('insightMostExpensiveText').textContent = expensive
+                ? `${expensive.creator_name} currently has the highest payout at ${window.ReachIQ.formatInr(expensive.payout_amount || 0)}.`
+                : 'Waiting for payout data.';
+
+            const inefficient = insights.least_efficient_creator;
+            document.getElementById('insightLeastEfficient').textContent = inefficient ? inefficient.creator_name : 'Not enough data yet';
+            document.getElementById('insightLeastEfficientText').textContent = inefficient
+                ? `${inefficient.creator_name} is the least efficient right now with ${window.ReachIQ.formatInr(inefficient.payout_amount || 0)} spent for ${inefficient.tracked_views.toLocaleString()} tracked views.`
+                : 'We’ll flag high-cost, low-performance creators here.';
+
+            const highlightList = document.getElementById('highlightList');
+            const chips = [];
+            (insights.delayed_creators || []).forEach(name => chips.push(`<span class="highlight-chip danger">⚠ ${name}</span>`));
+            (insights.completed_creators || []).forEach(name => chips.push(`<span class="highlight-chip success">✅ ${name}</span>`));
+            (insights.high_roi_creators || []).forEach(name => chips.push(`<span class="highlight-chip warning">💰 ${name}</span>`));
+            chips.push(`<span class="highlight-chip">Completion ${metrics.completion_percentage || 0}%</span>`);
+            highlightList.innerHTML = chips.length ? chips.join('') : '<span class="highlight-chip">No standout signals yet</span>';
+        }
+
+        function renderCreatorTable(analytics) {
+            const rows = analytics.creator_metrics || [];
+            const tbody = document.getElementById('creatorMetricsTableBody');
+            if (!rows.length) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);padding:1.4rem;">No creators linked to this campaign yet.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = rows.map(row => `
+                <tr>
+                    <td>
+                        <strong>${row.creator_name}</strong>
+                        <div style="margin-top:0.35rem;font-size:0.78rem;color:var(--text-muted);">
+                            ${row.analytics_source === 'youtube_live' ? 'Live YouTube data' : row.analytics_source === 'tracker_cache' ? 'Tracker fallback' : 'No video data'}
+                        </div>
+                    </td>
+                    <td><span class="status-pill ${formatStatusTone(row.submission_status)}">${row.submission_status.replace('_', ' ')}</span></td>
+                    <td><span class="status-pill ${formatStatusTone(row.milestone_status)}">${row.milestone_status.replace('_', ' ')}</span></td>
+                    <td><span class="status-pill ${formatStatusTone(row.payment_status)}">${row.payment_status.replace(/_/g, ' ')}</span></td>
+                    <td>${window.ReachIQ.formatInr(row.payout_amount || 0)}</td>
+                    <td>${(row.tracked_views || 0).toLocaleString()}</td>
+                </tr>
+            `).join('');
+        }
+
+        function renderCharts(analytics) {
+            const data = window.ReachIQCampaignAnalytics.buildChartData(analytics);
+            createPieChart('escrow', 'escrowStatusChart', data.escrowPie);
+            createPieChart('submission', 'submissionStatusChart', data.submissionPie);
+            createBarChart('budget', 'budgetUtilizationChart', data.budgetBar, value => window.ReachIQ.formatInr(value));
+            createBarChart('payout', 'creatorPayoutChart', data.payoutBar, value => window.ReachIQ.formatInr(value));
+            createBarChart('milestone', 'creatorMilestoneChart', data.milestoneBar, value => Number(value));
+        }
+
+        async function init() {
+            const auth = await window.ReachIQ.requireRole(supabaseClient, 'brand');
+            if (!auth) return;
+
+            if (!campaignId) {
+                document.getElementById('analyticsLoading').style.display = 'none';
+                document.getElementById('analyticsEmpty').style.display = 'block';
+                document.getElementById('analyticsEmpty').innerHTML = '<h3>No campaign selected</h3><p>Open this page from the Manage Campaigns view to analyze a campaign.</p>';
+                return;
+            }
+
+            try {
+                const analytics = await window.ReachIQCampaignAnalytics.fetchCampaignAnalytics(supabaseClient, campaignId);
+                document.getElementById('analyticsCampaignTitle').textContent = analytics.campaign?.name || 'Campaign Analytics';
+                document.getElementById('analyticsCampaignSubtitle').textContent = analytics.campaign?.brief_text || 'Performance, payout, submission, and milestone insights for this campaign.';
+                document.getElementById('analyticsLoading').style.display = 'none';
+
+                if (!(analytics.creator_metrics || []).length) {
+                    document.getElementById('analyticsEmpty').style.display = 'block';
+                    return;
+                }
+
+                document.getElementById('analyticsContent').style.display = 'block';
+                renderMetricCards(analytics);
+                renderInsights(analytics);
+                renderCreatorTable(analytics);
+                renderCharts(analytics);
+            } catch (error) {
+                document.getElementById('analyticsLoading').innerHTML = `<h3>Could not load analytics</h3><p>${error.message}</p>`;
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

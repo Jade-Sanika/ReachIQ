@@ -63,7 +63,13 @@
 
   function injectBell(role, unreadCount) {
     const navLinks = document.querySelector('.nav-links');
-    if (!navLinks || navLinks.querySelector('.nav-notification-link')) return;
+    if (!navLinks) return;
+
+    const existingBell = navLinks.querySelector('.nav-notification-link');
+    if (existingBell) {
+      updateBellBadge(unreadCount);
+      return;
+    }
 
     const bellLink = document.createElement('a');
     const page = getCurrentPage();
@@ -79,6 +85,13 @@
     const logoutButton = navLinks.querySelector('.btn-logout');
     if (logoutButton) navLinks.insertBefore(bellLink, logoutButton);
     else navLinks.appendChild(bellLink);
+  }
+
+  function updateBellBadge(unreadCount) {
+    const badge = document.querySelector('.nav-notification-badge');
+    if (!badge) return;
+    badge.textContent = unreadCount || '';
+    badge.classList.toggle('is-hidden', !unreadCount);
   }
 
   function renderNotificationsPage(role, userId, notifications) {
@@ -140,6 +153,8 @@
     const role = getRoleFromPage();
     if (!role || !global.ReachIQ || !global.supabase) return;
 
+    injectBell(role, 0);
+
     try {
       const client = global.ReachIQ.createSupabaseClient();
       const [{ data: { user } }, { data: { session } }] = await Promise.all([
@@ -152,11 +167,11 @@
       const seen = readSeenIds(role, user.id);
       const unreadCount = notifications.filter((notification) => !seen.has(notification.id)).length;
 
-      injectBell(role, unreadCount);
+      updateBellBadge(unreadCount);
       renderNotificationsPage(role, user.id, notifications);
     } catch (error) {
       console.error('Notifications unavailable:', error);
-      injectBell(role, 0);
+      updateBellBadge(0);
     }
   }
 

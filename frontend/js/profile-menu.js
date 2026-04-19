@@ -14,6 +14,7 @@
     if (role === 'brand') {
       return [
         { href: 'brand-dashboard.html', icon: '&#128200;', label: 'Dashboard' },
+        { href: 'brand-profile.html', icon: '&#128100;', label: 'Brand Profile' },
         { href: 'brand-notifications.html', icon: '&#128276;', label: 'Notifications' },
         { href: 'brand-campaigns.html', icon: '&#128221;', label: 'Campaigns' },
       ];
@@ -81,17 +82,22 @@
 
     let profile = null;
     try {
-      const response = await client.from('profiles').select('full_name, role').eq('id', user.id).single();
+      const response = await client.from('profiles').select('full_name, role, avatar_url').eq('id', user.id).single();
       profile = response.data || null;
     } catch (error) {
       profile = null;
     }
 
+    const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email;
+    const avatarMarkup = profile?.avatar_url
+      ? `<img src="${profile.avatar_url}" alt="${displayName || 'Profile'}" class="nav-profile-avatar">`
+      : initialsFromName(displayName);
+
     const wrapper = document.createElement('div');
     wrapper.className = 'nav-profile';
     wrapper.innerHTML = `
       <button type="button" class="nav-profile-trigger" aria-label="Open profile menu">
-        ${initialsFromName(profile?.full_name || user?.user_metadata?.full_name || user?.email)}
+        ${avatarMarkup}
       </button>
       <div class="nav-profile-menu" aria-hidden="true">
         ${buildProfileMenuMarkup(profile, user)}

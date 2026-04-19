@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hosted Demo Checkout - ReachIQ</title>
+    <link rel="stylesheet" href="styles/style.css">
+</head>
+<body class="checkout-body">
+    <div id="checkoutLoader" class="checkout-loader-overlay">
+        <div class="checkout-loader-card">
+            <div class="loading-spinner"></div>
+            <h3 id="checkoutLoaderTitle">Preparing secure checkout...</h3>
+            <p id="checkoutLoaderText">Fetching campaign, creator, and milestone details for this escrow release.</p>
+        </div>
+    </div>
+
+    <div class="checkout-shell">
+        <aside class="checkout-brand-panel">
+            <div class="checkout-brand-chip">Hosted Demo Checkout</div>
+            <h1>Complete Escrow Release</h1>
+            <p>This page simulates a third-party payment gateway. No real money will move.</p>
+
+            <div class="checkout-summary-card">
+                <span>Campaign</span>
+                <strong id="checkoutCampaign">-</strong>
+            </div>
+            <div class="checkout-summary-card">
+                <span>Creator</span>
+                <strong id="checkoutCreator">-</strong>
+            </div>
+            <div class="checkout-summary-card">
+                <span>Amount</span>
+                <strong id="checkoutAmount">-</strong>
+            </div>
+            <div class="checkout-summary-card">
+                <span>Milestone</span>
+                <strong id="checkoutMilestone">-</strong>
+            </div>
+
+            <div class="checkout-backlinks">
+                <a id="backToTrackerLink" href="video-tracker.html" class="btn-secondary">Back to Tracker</a>
+            </div>
+        </aside>
+
+        <main class="checkout-gateway-panel">
+            <div class="gateway-header">
+                <div>
+                    <p class="gateway-eyebrow">Gateway</p>
+                    <h2>Choose Payment Method</h2>
+                </div>
+                <div class="gateway-trust">Secure Demo Environment</div>
+            </div>
+
+            <div class="gateway-method-tabs">
+                <button type="button" class="gateway-method active" onclick="selectMethod('upi', event)">UPI</button>
+                <button type="button" class="gateway-method" onclick="selectMethod('card', event)">Card</button>
+            </div>
+
+            <section id="upiPane" class="gateway-pane active">
+                <div class="gateway-provider-bar">
+                    <strong>UPI Intent</strong>
+                    <span>Powered by Demo UPI Switch</span>
+                </div>
+                <div class="upi-grid">
+                    <div class="upi-qr-card">
+                        <div class="upi-qr-placeholder">SCAN QR</div>
+                        <p class="upi-note">Scan this demo QR with any UPI app.</p>
+                    </div>
+                    <div class="upi-action-card">
+                        <label for="upiIdInput">UPI ID</label>
+                        <input type="text" id="upiIdInput" placeholder="brand@upi">
+                        <div class="upi-apps">
+                            <button type="button" class="upi-app-btn" onclick="setUpiApp('Google Pay', event)">Google Pay</button>
+                            <button type="button" class="upi-app-btn" onclick="setUpiApp('PhonePe', event)">PhonePe</button>
+                            <button type="button" class="upi-app-btn" onclick="setUpiApp('Paytm', event)">Paytm</button>
+                        </div>
+                        <p id="upiSelectionText" class="gateway-helper">Choose an app or enter a UPI ID to continue.</p>
+                        <button type="button" class="btn-primary" id="upiPayBtn" onclick="submitHostedPayment('UPI Demo')">Open UPI App</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="cardPane" class="gateway-pane">
+                <div class="gateway-provider-bar">
+                    <strong>Card Checkout</strong>
+                    <span>Demo Stripe / RuPay Secure</span>
+                </div>
+                <div class="card-gateway-pills">
+                    <button type="button" class="gateway-pill active" onclick="selectProcessor('Demo Stripe', event)">Demo Stripe</button>
+                    <button type="button" class="gateway-pill" onclick="selectProcessor('RuPay Secure', event)">RuPay Secure</button>
+                </div>
+                <div class="card-form-grid">
+                    <div class="form-group">
+                        <label for="cardholderName">Cardholder Name</label>
+                        <input type="text" id="cardholderName" placeholder="ReachIQ Brand Team">
+                    </div>
+                    <div class="form-group">
+                        <label for="cardNumberInput">Card Number</label>
+                        <input type="text" id="cardNumberInput" inputmode="numeric" placeholder="4242 4242 4242 4242">
+                    </div>
+                    <div class="form-group">
+                        <label for="cardExpiryInput">Expiry</label>
+                        <input type="text" id="cardExpiryInput" placeholder="12/29">
+                    </div>
+                    <div class="form-group">
+                        <label for="cardCvcInput">CVV</label>
+                        <input type="text" id="cardCvcInput" inputmode="numeric" placeholder="123">
+                    </div>
+                </div>
+                <p class="gateway-helper">This is a hosted demo card form. It will simulate a redirect-style payment flow.</p>
+                <button type="button" class="btn-primary" id="cardPayBtn" onclick="submitHostedPayment(selectedProcessor)">Pay Securely</button>
+            </section>
+
+            <div id="checkoutStatus" class="checkout-status">Ready to simulate the hosted payment flow.</div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js"></script>
+    <script src="js/config.js"></script>
+    <script>
+        const supabaseClient = window.ReachIQ.createSupabaseClient();
+        let currentOffer = null;
+        let selectedMethod = 'upi';
+        let selectedProcessor = 'Demo Stripe';
+        let selectedUpiApp = '';
+
+        function showCheckoutLoader(title = 'Preparing secure checkout...', message = 'Fetching campaign, creator, and milestone details for this escrow release.') {
+            document.getElementById('checkoutLoaderTitle').textContent = title;
+            document.getElementById('checkoutLoaderText').textContent = message;
+            document.getElementById('checkoutLoader').style.display = 'flex';
+        }
+
+        function hideCheckoutLoader() {
+            document.getElementById('checkoutLoader').style.display = 'none';
+        }
+
+        function formatMoney(value) {
+            const amount = Number(value || 0);
+            return amount > 0 ? window.ReachIQ.formatInr(amount) : 'Negotiable';
+        }
+
+        function trackerUrlForOffer(offerId) {
+            return `video-tracker.html?offer=${offerId}`;
+        }
+
+        async function ensureBrandAccess() {
+            return await window.ReachIQ.requireRole(supabaseClient, 'brand');
+        }
+
+        function selectMethod(method, event) {
+            selectedMethod = method;
+            document.querySelectorAll('.gateway-method').forEach(btn => btn.classList.remove('active'));
+            if (event?.currentTarget) event.currentTarget.classList.add('active');
+            document.getElementById('upiPane').classList.toggle('active', method === 'upi');
+            document.getElementById('cardPane').classList.toggle('active', method === 'card');
+        }
+
+        function selectProcessor(name, event) {
+            selectedProcessor = name;
+            document.querySelectorAll('.gateway-pill').forEach(btn => btn.classList.remove('active'));
+            if (event?.currentTarget) event.currentTarget.classList.add('active');
+        }
+
+        function setUpiApp(name, event) {
+            selectedUpiApp = name;
+            document.querySelectorAll('.upi-app-btn').forEach(btn => btn.classList.remove('active'));
+            if (event?.currentTarget) event.currentTarget.classList.add('active');
+            document.getElementById('upiSelectionText').textContent = `${name} selected for the demo UPI handoff.`;
+        }
+
+        async function loadOfferContext() {
+            const params = new URLSearchParams(window.location.search);
+            const offerId = params.get('offer');
+            if (!offerId) throw new Error('Missing offer id for checkout.');
+
+            hydrateCachedOfferContext(offerId);
+
+            showCheckoutLoader('Preparing secure checkout...', 'Fetching the latest campaign, creator, and milestone details from ReachIQ.');
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            const response = await fetch(`/api/offers/${offerId}/analytics`, {
+                headers: { 'Authorization': `Bearer ${session.access_token}` }
+            });
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload.error || 'Failed to load offer analytics');
+
+            currentOffer = payload.offer;
+            document.getElementById('checkoutCampaign').textContent = currentOffer.campaign?.name || 'Campaign';
+            document.getElementById('checkoutCreator').textContent = currentOffer.creator?.full_name || 'Creator';
+            document.getElementById('checkoutAmount').textContent = formatMoney(currentOffer.payment_amount);
+            document.getElementById('checkoutMilestone').textContent = `${(currentOffer.campaign?.milestone_views || 0).toLocaleString()} views`;
+            document.getElementById('backToTrackerLink').href = trackerUrlForOffer(currentOffer.id);
+            hideCheckoutLoader();
+        }
+
+        function hydrateCachedOfferContext(offerId) {
+            try {
+                const raw = window.sessionStorage.getItem(`reachiq_checkout_offer_${offerId}`);
+                if (!raw) return;
+                const cached = JSON.parse(raw);
+                document.getElementById('checkoutCampaign').textContent = cached.campaign_name || 'Campaign';
+                document.getElementById('checkoutCreator').textContent = cached.creator_name || 'Creator';
+                document.getElementById('checkoutAmount').textContent = formatMoney(cached.payment_amount);
+                document.getElementById('checkoutMilestone').textContent = `${Number(cached.milestone_views || 0).toLocaleString()} views`;
+                document.getElementById('backToTrackerLink').href = trackerUrlForOffer(cached.id || offerId);
+                document.getElementById('checkoutStatus').textContent = 'Fetching the latest payment details...';
+            } catch (error) {
+                console.warn('Could not hydrate cached checkout context:', error);
+            }
+        }
+
+        async function submitHostedPayment(gatewayName) {
+            if (!currentOffer?.id) return;
+
+            if (selectedMethod === 'upi') {
+                const upiId = document.getElementById('upiIdInput').value.trim();
+                if (!upiId && !selectedUpiApp) {
+                    document.getElementById('checkoutStatus').textContent = 'Enter a demo UPI ID or choose a UPI app first.';
+                    return;
+                }
+            } else {
+                const cardholder = document.getElementById('cardholderName').value.trim();
+                const cardNumber = document.getElementById('cardNumberInput').value.replace(/\s+/g, '');
+                const expiry = document.getElementById('cardExpiryInput').value.trim();
+                const cvc = document.getElementById('cardCvcInput').value.trim();
+                if (!cardholder || cardNumber.length < 12 || !expiry || cvc.length < 3) {
+                    document.getElementById('checkoutStatus').textContent = 'Fill in the demo card details to continue.';
+                    return;
+                }
+            }
+
+            document.getElementById('checkoutStatus').textContent = `Redirecting to ${gatewayName} and simulating payment confirmation...`;
+            showCheckoutLoader(`Connecting to ${gatewayName}...`, 'Processing the demo escrow release and waiting for payment confirmation.');
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            const response = await fetch('/api/offers/demo-payment/release', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`
+                },
+                body: JSON.stringify({
+                    offer_id: currentOffer.id,
+                    gateway_name: gatewayName
+                })
+            });
+            const payload = await response.json();
+            if (!response.ok) {
+                hideCheckoutLoader();
+                document.getElementById('checkoutStatus').textContent = payload.error || 'Payment simulation failed.';
+                return;
+            }
+
+            document.getElementById('checkoutStatus').textContent = `${formatMoney(payload.payment?.amount)} released successfully. Redirecting back to tracker...`;
+            setTimeout(() => {
+                window.location.href = trackerUrlForOffer(currentOffer.id);
+            }, 1400);
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const auth = await ensureBrandAccess();
+                if (!auth) return;
+                await loadOfferContext();
+            } catch (error) {
+                hideCheckoutLoader();
+                document.getElementById('checkoutStatus').textContent = error.message;
+            }
+        });
+    </script>
+
+    <style>
+        .checkout-body {
+            min-height: 100vh;
+            padding: 2rem;
+            background:
+                radial-gradient(circle at top left, rgba(212,168,83,0.12), transparent 35%),
+                radial-gradient(circle at bottom right, rgba(77,217,192,0.1), transparent 30%),
+                #070c17;
+        }
+        .checkout-loader-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(4,8,16,0.74);
+            backdrop-filter: blur(10px);
+        }
+        .checkout-loader-card {
+            width: min(92vw, 440px);
+            text-align: center;
+            padding: 1.6rem 1.5rem;
+            border-radius: 24px;
+            background: rgba(10,15,30,0.94);
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 24px 60px rgba(0,0,0,0.35);
+        }
+        .checkout-loader-card h3 {
+            margin-bottom: 0.35rem;
+            font-size: 1rem;
+        }
+        .checkout-loader-card p {
+            color: var(--text-secondary);
+            font-size: 0.86rem;
+        }
+        .checkout-shell {
+            max-width: 1180px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 360px 1fr;
+            gap: 1.5rem;
+        }
+        .checkout-brand-panel,
+        .checkout-gateway-panel {
+            background: rgba(10,15,30,0.88);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 28px;
+            backdrop-filter: blur(18px);
+            box-shadow: 0 24px 60px rgba(0,0,0,0.35);
+        }
+        .checkout-brand-panel {
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .checkout-brand-chip {
+            display: inline-flex;
+            width: fit-content;
+            padding: 0.32rem 0.8rem;
+            border-radius: 999px;
+            background: rgba(212,168,83,0.14);
+            color: var(--gold-light);
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+        .checkout-brand-panel h1 {
+            font-size: 2rem;
+            margin-top: 0.6rem;
+        }
+        .checkout-summary-card {
+            background: rgba(248,244,239,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 18px;
+            padding: 0.95rem 1rem;
+        }
+        .checkout-summary-card span {
+            display: block;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 0.35rem;
+        }
+        .checkout-summary-card strong {
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+        .checkout-backlinks {
+            margin-top: auto;
+            padding-top: 0.5rem;
+        }
+        .checkout-gateway-panel {
+            padding: 2rem;
+        }
+        .gateway-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .gateway-eyebrow {
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 0.35rem;
+        }
+        .gateway-trust {
+            padding: 0.4rem 0.8rem;
+            border-radius: 999px;
+            background: rgba(77,217,192,0.12);
+            color: var(--teal);
+            font-size: 0.76rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+        }
+        .gateway-method-tabs {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+        }
+        .gateway-method {
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(248,244,239,0.04);
+            color: var(--text-secondary);
+            border-radius: 999px;
+            padding: 0.8rem 1.2rem;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.88rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .gateway-method.active {
+            background: linear-gradient(135deg, var(--gold), #c49440);
+            color: #08101d;
+            border-color: transparent;
+        }
+        .gateway-pane {
+            display: none;
+            margin-top: 1.5rem;
+            background: rgba(248,244,239,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 22px;
+            padding: 1.5rem;
+        }
+        .gateway-pane.active {
+            display: block;
+        }
+        .gateway-provider-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+        .gateway-provider-bar span {
+            color: var(--text-muted);
+            font-size: 0.82rem;
+        }
+        .upi-grid {
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            gap: 1rem;
+        }
+        .upi-qr-card,
+        .upi-action-card {
+            background: rgba(10,15,30,0.7);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 18px;
+            padding: 1rem;
+        }
+        .upi-qr-placeholder {
+            height: 200px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background:
+                linear-gradient(45deg, rgba(255,255,255,0.08) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.08) 75%, transparent 75%, transparent),
+                linear-gradient(45deg, transparent 25%, rgba(255,255,255,0.08) 25%, rgba(255,255,255,0.08) 50%, transparent 50%, transparent 75%, rgba(255,255,255,0.08) 75%, rgba(255,255,255,0.08));
+            background-size: 24px 24px;
+            background-position: 0 0, 12px 12px;
+            color: var(--white);
+            font-weight: 700;
+            letter-spacing: 0.08em;
+        }
+        .upi-note {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 0.85rem;
+        }
+        .upi-action-card label {
+            display: block;
+            font-size: 0.74rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 0.4rem;
+        }
+        .upi-apps {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            margin: 1rem 0;
+        }
+        .upi-app-btn,
+        .gateway-pill {
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(248,244,239,0.04);
+            color: var(--text-secondary);
+            border-radius: 14px;
+            padding: 0.65rem 0.95rem;
+            font-family: 'DM Sans', sans-serif;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .upi-app-btn.active,
+        .gateway-pill.active {
+            background: rgba(77,217,192,0.12);
+            border-color: rgba(77,217,192,0.2);
+            color: var(--teal);
+        }
+        .gateway-helper {
+            color: var(--text-muted);
+            font-size: 0.84rem;
+            margin: 0.8rem 0 1rem;
+        }
+        .card-gateway-pills {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            margin: 1rem 0 1.1rem;
+        }
+        .card-form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1rem;
+        }
+        .checkout-status {
+            margin-top: 1.4rem;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px;
+            padding: 0.95rem 1rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        @media (max-width: 980px) {
+            .checkout-shell {
+                grid-template-columns: 1fr;
+            }
+            .upi-grid,
+            .card-form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</body>
+</html>

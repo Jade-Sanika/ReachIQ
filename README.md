@@ -6,7 +6,7 @@ ReachIQ is an AI-assisted influencer marketing platform for brands and creators.
 - Frontend: static multi-page HTML/CSS/JS
 - Backend: Flask
 - Database/Auth: Supabase
-- AI: Gemini
+- AI: Gemini for existing platform AI features, Ollama for the local chatbot assistant
 - External data: YouTube Data API
 
 ## Core Features
@@ -36,6 +36,30 @@ ReachIQ is an AI-assisted influencer marketing platform for brands and creators.
 5. Apply `supabase/migrations/002_ai_features.sql`
 6. Apply `supabase/migrations/003_campaign_delivery_workflow.sql`
 7. Run the app from the repo root with `python run.py`
+
+## Chatbot LLM Setup
+The ReachIQ chatbot assistant is configured separately from the rest of the platform AI features.
+
+Recommended chatbot setup in `backend/.env`:
+- `ASSISTANT_LLM_PROVIDER=groq`
+- `GROQ_API_KEY=your-groq-api-key`
+- `GROQ_BASE_URL=https://api.groq.com/openai/v1`
+- `GROQ_MODEL=llama-3.1-8b-instant`
+- `GROQ_TIMEOUT_SECONDS=20`
+
+Current chatbot model:
+- `llama-3.1-8b-instant` via Groq
+
+Important:
+- The chatbot uses Groq when `ASSISTANT_LLM_PROVIDER=groq`.
+- Other existing AI features like some document/voice/profile/review flows still rely on Gemini unless we migrate them separately.
+- If Groq is unavailable or times out, chatbot requests fall back to deterministic backend behavior where possible.
+
+Optional local alternative:
+- `ASSISTANT_LLM_PROVIDER=ollama`
+- `OLLAMA_BASE_URL=http://127.0.0.1:11434`
+- `OLLAMA_MODEL=qwen3:4b`
+- `OLLAMA_TIMEOUT_SECONDS=20`
 
 ## Testing
 - Run backend logic tests with `pytest backend/tests`

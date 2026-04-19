@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brand Profile - ReachIQ</title>
+    <link rel="stylesheet" href="styles/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">ReachIQ</div>
+        <div class="nav-links">
+            <a href="brand-dashboard.html">Dashboard</a>
+            <a href="brand-campaigns.html">Campaigns</a>
+            <a href="brand-profile.html" class="active">Profile</a>
+            <button onclick="logout()" class="btn-logout">Sign Out</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header class="dashboard-header brand-profile-header">
+            <div>
+                <p class="brand-profile-eyebrow">Brand Identity</p>
+                <h1>Brand Profile</h1>
+                <p>Manage the basic details your team sees across ReachIQ. Upload a logo, keep your company information current, and we'll fall back to your initials whenever the logo is blank.</p>
+            </div>
+        </header>
+
+        <div id="profileMessage" class="message" role="status" aria-live="polite"></div>
+
+        <div class="brand-profile-layout">
+            <aside class="brand-profile-card brand-profile-preview-card">
+                <div class="brand-logo-shell">
+                    <div id="brandLogoPreview" class="brand-logo-preview">BR</div>
+                </div>
+                <h2 id="brandDisplayName">Brand Name</h2>
+                <p id="brandDisplayMeta" class="brand-display-meta">Basic company identity for ReachIQ.</p>
+                <div class="brand-profile-upload-actions">
+                    <label for="brandLogoInput" class="btn-secondary brand-upload-btn">Upload Logo</label>
+                    <button type="button" class="btn-secondary" id="removeLogoBtn">Remove Logo</button>
+                </div>
+                <input type="file" id="brandLogoInput" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden>
+                <p class="brand-logo-hint">PNG, JPG, WEBP, or SVG. Use a square logo for the cleanest preview.</p>
+            </aside>
+
+            <form id="brandProfileForm" class="brand-profile-card brand-profile-form">
+                <section class="brand-profile-section">
+                    <div class="brand-profile-section-heading">
+                        <h2>Identity</h2>
+                        <span class="profile-chip">Visible across ReachIQ</span>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="brandName">Brand Name</label>
+                            <input type="text" id="brandName" required placeholder="e.g. L'Oreal Paris">
+                        </div>
+                        <div class="form-group">
+                            <label for="brandEmail">Account Email</label>
+                            <input type="email" id="brandEmail" readonly>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="brandIndustry">Industry / Niche</label>
+                            <input type="text" id="brandIndustry" placeholder="e.g. Beauty, Tech, Lifestyle">
+                        </div>
+                        <div class="form-group">
+                            <label for="brandWebsite">Website</label>
+                            <input type="url" id="brandWebsite" placeholder="https://yourbrand.com">
+                        </div>
+                    </div>
+                </section>
+
+                <section class="brand-profile-section">
+                    <div class="brand-profile-section-heading">
+                        <h2>Contact Details</h2>
+                        <span class="profile-chip">Internal account context</span>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="contactPerson">Contact Person</label>
+                            <input type="text" id="contactPerson" placeholder="e.g. Sanika Mehta">
+                        </div>
+                        <div class="form-group">
+                            <label for="contactPhone">Contact Phone</label>
+                            <input type="text" id="contactPhone" placeholder="+91 98765 43210">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="brandLocation">Location</label>
+                            <input type="text" id="brandLocation" placeholder="e.g. Mumbai, India">
+                        </div>
+                        <div class="form-group">
+                            <label for="companySize">Company Size</label>
+                            <select id="companySize">
+                                <option value="">Select size</option>
+                                <option value="solo">Solo / Founder-led</option>
+                                <option value="small">2-20 employees</option>
+                                <option value="mid">21-100 employees</option>
+                                <option value="large">100+ employees</option>
+                                <option value="enterprise">Enterprise</option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="brand-profile-section">
+                    <div class="brand-profile-section-heading">
+                        <h2>About the Brand</h2>
+                        <span class="profile-chip">Helps internal context</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="brandAbout">Brand Overview</label>
+                        <textarea id="brandAbout" rows="6" placeholder="Share a short overview of your brand, positioning, target market, and creator collaboration style."></textarea>
+                    </div>
+                </section>
+
+                <div class="brand-profile-actions">
+                    <a href="brand-dashboard.html" class="btn-secondary">Back to Dashboard</a>
+                    <button type="submit" id="saveBrandProfileBtn" class="btn-primary">Save Brand Profile</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/notifications.js"></script>
+    <script src="js/profile-menu.js"></script>
+    <script src="js/chatbot.js"></script>
+    <script>
+        const supabaseClient = window.ReachIQ.createSupabaseClient();
+        let currentUser = null;
+        let currentProfile = null;
+        let currentLogoDataUrl = '';
+
+        function logout() {
+            supabaseClient.auth.signOut().finally(() => {
+                window.location.href = '/';
+            });
+        }
+
+        function initialsFromName(name = '') {
+            const parts = String(name).trim().split(/\s+/).filter(Boolean);
+            if (!parts.length) return 'BR';
+            return parts.slice(0, 2).map((part) => part[0]).join('').toUpperCase();
+        }
+
+        function showMessage(type, text) {
+            const node = document.getElementById('profileMessage');
+            node.className = `message ${type}`;
+            node.textContent = text;
+            node.style.display = 'block';
+        }
+
+        function clearMessage() {
+            const node = document.getElementById('profileMessage');
+            node.textContent = '';
+            node.style.display = 'none';
+            node.className = 'message';
+        }
+
+        function renderLogoPreview(logoUrl, brandName, industry, location) {
+            const preview = document.getElementById('brandLogoPreview');
+            const safeName = brandName || 'Brand Name';
+            if (logoUrl) {
+                preview.innerHTML = `<img src="${logoUrl}" alt="${safeName}" class="brand-logo-image">`;
+            } else {
+                preview.textContent = initialsFromName(safeName);
+            }
+            document.getElementById('brandDisplayName').textContent = safeName;
+            const metaBits = [industry, location].filter(Boolean);
+            document.getElementById('brandDisplayMeta').textContent = metaBits.join(' | ') || 'Basic company identity for ReachIQ.';
+        }
+
+        function readBrandMetadata(user) {
+            return user?.user_metadata?.brand_profile || {};
+        }
+
+        async function loadProfile() {
+            const auth = await window.ReachIQ.requireRole(supabaseClient, 'brand');
+            if (!auth) return;
+            currentUser = auth.user;
+
+            const { data: profile, error } = await supabaseClient
+                .from('profiles')
+                .select('*')
+                .eq('id', currentUser.id)
+                .single();
+
+            if (error) throw error;
+            currentProfile = profile || {};
+
+            const metadata = readBrandMetadata(currentUser);
+            const brandName = currentProfile.full_name || currentUser.user_metadata?.full_name || '';
+            const logoUrl = currentProfile.avatar_url || '';
+
+            document.getElementById('brandName').value = brandName;
+            document.getElementById('brandEmail').value = currentUser.email || '';
+            document.getElementById('brandIndustry').value = metadata.industry || '';
+            document.getElementById('brandWebsite').value = metadata.website || '';
+            document.getElementById('contactPerson').value = metadata.contact_person || '';
+            document.getElementById('contactPhone').value = metadata.contact_phone || '';
+            document.getElementById('brandLocation').value = metadata.location || '';
+            document.getElementById('companySize').value = metadata.company_size || '';
+            document.getElementById('brandAbout').value = metadata.about || '';
+
+            currentLogoDataUrl = logoUrl;
+            renderLogoPreview(logoUrl, brandName, metadata.industry, metadata.location);
+        }
+
+        function attachPreviewListeners() {
+            ['brandName', 'brandIndustry', 'brandLocation'].forEach((id) => {
+                document.getElementById(id).addEventListener('input', () => {
+                    renderLogoPreview(
+                        currentLogoDataUrl,
+                        document.getElementById('brandName').value,
+                        document.getElementById('brandIndustry').value,
+                        document.getElementById('brandLocation').value
+                    );
+                });
+            });
+        }
+
+        function handleLogoSelection(event) {
+            const file = event.target.files?.[0];
+            if (!file) return;
+
+            const allowed = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
+            if (!allowed.includes(file.type)) {
+                showMessage('error', 'Please upload a PNG, JPG, WEBP, or SVG logo.');
+                event.target.value = '';
+                return;
+            }
+
+            if (file.size > 1024 * 1024) {
+                showMessage('error', 'Please keep the logo under 1 MB so it stays lightweight.');
+                event.target.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = () => {
+                currentLogoDataUrl = reader.result;
+                clearMessage();
+                renderLogoPreview(
+                    currentLogoDataUrl,
+                    document.getElementById('brandName').value,
+                    document.getElementById('brandIndustry').value,
+                    document.getElementById('brandLocation').value
+                );
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function saveProfile(event) {
+            event.preventDefault();
+            clearMessage();
+
+            const saveBtn = document.getElementById('saveBrandProfileBtn');
+            const originalText = saveBtn.textContent;
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+
+            try {
+                const brandName = document.getElementById('brandName').value.trim();
+                if (!brandName) throw new Error('Brand name is required.');
+
+                const metadata = {
+                    industry: document.getElementById('brandIndustry').value.trim(),
+                    website: document.getElementById('brandWebsite').value.trim(),
+                    contact_person: document.getElementById('contactPerson').value.trim(),
+                    contact_phone: document.getElementById('contactPhone').value.trim(),
+                    location: document.getElementById('brandLocation').value.trim(),
+                    company_size: document.getElementById('companySize').value,
+                    about: document.getElementById('brandAbout').value.trim()
+                };
+
+                const { error: profileError } = await supabaseClient
+                    .from('profiles')
+                    .update({
+                        full_name: brandName,
+                        avatar_url: currentLogoDataUrl || null
+                    })
+                    .eq('id', currentUser.id);
+
+                if (profileError) throw profileError;
+
+                const mergedMetadata = {
+                    ...(currentUser.user_metadata || {}),
+                    full_name: brandName,
+                    brand_profile: metadata
+                };
+
+                const { data: updatedUserData, error: updateUserError } = await supabaseClient.auth.updateUser({
+                    data: mergedMetadata
+                });
+
+                if (updateUserError) throw updateUserError;
+
+                currentUser = updatedUserData?.user || currentUser;
+                currentProfile = {
+                    ...(currentProfile || {}),
+                    full_name: brandName,
+                    avatar_url: currentLogoDataUrl || null
+                };
+
+                renderLogoPreview(currentLogoDataUrl, brandName, metadata.industry, metadata.location);
+                showMessage('success', 'Brand profile updated successfully.');
+            } catch (error) {
+                showMessage('error', `Failed to save brand profile: ${error.message}`);
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = originalText;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                await loadProfile();
+                attachPreviewListeners();
+                document.getElementById('brandLogoInput').addEventListener('change', handleLogoSelection);
+                document.getElementById('removeLogoBtn').addEventListener('click', () => {
+                    currentLogoDataUrl = '';
+                    document.getElementById('brandLogoInput').value = '';
+                    clearMessage();
+                    renderLogoPreview(
+                        '',
+                        document.getElementById('brandName').value,
+                        document.getElementById('brandIndustry').value,
+                        document.getElementById('brandLocation').value
+                    );
+                });
+                document.getElementById('brandProfileForm').addEventListener('submit', saveProfile);
+            } catch (error) {
+                showMessage('error', `Failed to load brand profile: ${error.message}`);
+            }
+        });
+    </script>
+
+    <style>
+        .brand-profile-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        .brand-profile-eyebrow {
+            color: var(--gold);
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            margin-bottom: 0.4rem;
+        }
+        .brand-profile-layout {
+            display: grid;
+            grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+            gap: 1.5rem;
+            align-items: start;
+            margin-bottom: 3rem;
+        }
+        .brand-profile-card {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            backdrop-filter: blur(12px);
+            box-shadow: var(--shadow);
+        }
+        .brand-profile-preview-card {
+            position: sticky;
+            top: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 1rem;
+        }
+        .brand-logo-shell {
+            width: 112px;
+            height: 112px;
+            padding: 4px;
+            border-radius: 28px;
+            background: linear-gradient(135deg, rgba(212,168,83,0.26), rgba(77,217,192,0.16));
+            box-shadow: 0 20px 50px rgba(4, 8, 18, 0.34);
+        }
+        .brand-logo-preview {
+            width: 100%;
+            height: 100%;
+            border-radius: 24px;
+            background: linear-gradient(145deg, rgba(17, 27, 49, 0.96), rgba(28, 41, 70, 0.98));
+            border: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-primary);
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            overflow: hidden;
+        }
+        .brand-logo-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .brand-display-meta {
+            color: var(--text-secondary);
+            margin-top: -0.35rem;
+        }
+        .brand-profile-upload-actions {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .brand-upload-btn {
+            cursor: pointer;
+        }
+        .brand-logo-hint {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin: 0;
+            line-height: 1.5;
+        }
+        .brand-profile-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        .brand-profile-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            padding-bottom: 1.25rem;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .brand-profile-section:last-of-type {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        .brand-profile-section-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .brand-profile-section-heading h2 {
+            margin: 0;
+            font-size: 1.1rem;
+        }
+        .profile-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.28rem 0.7rem;
+            border-radius: 999px;
+            background: rgba(77,217,192,0.1);
+            border: 1px solid rgba(77,217,192,0.16);
+            color: var(--teal);
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .brand-profile-actions {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+            padding-top: 0.5rem;
+        }
+        @media (max-width: 960px) {
+            .brand-profile-layout {
+                grid-template-columns: 1fr;
+            }
+            .brand-profile-preview-card {
+                position: static;
+            }
+        }
+    </style>
+</body>
+</html>

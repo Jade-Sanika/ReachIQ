@@ -95,6 +95,7 @@
     <script src="js/config.js"></script>
     <script src="js/notifications.js"></script>
     <script src="js/profile-menu.js"></script>
+    <script src="js/chatbot.js"></script>
     <script>
         const supabaseClient = window.ReachIQ.createSupabaseClient();
         let allOffers = [];
@@ -181,6 +182,7 @@
             container.innerHTML = filtered.map(offer => {
                 const influencerName = offer.influencer?.full_name || 'Creator';
                 const influencerHandle = offer.influencer?.username ? `@${offer.influencer.username}` : '';
+                const influencerAvatar = offer.influencer?.avatar_url || '';
                 const campaignName = offer.campaigns?.name || 'Unnamed Campaign';
                 let displayRate = offer.campaigns?.budget_range || 'Negotiable';
                 if (offer.influencer_quote) displayRate = window.ReachIQ.formatInr(offer.influencer_quote);
@@ -188,11 +190,14 @@
                 const isAgreed = !!offer.negotiated_amount;
                 const dateSent = offer.created_at ? new Date(offer.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) : 'Recently';
                 const initials = influencerName.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+                const avatarMarkup = influencerAvatar
+                    ? `<img src="${influencerAvatar}" alt="${influencerName}" class="creator-avatar-sm-image">`
+                    : `<span class="creator-avatar-sm-fallback">${initials}</span>`;
 
                 return `
                 <div class="brand-offer-card">
                     <div class="brand-offer-left">
-                        <div class="creator-avatar-sm">${initials}</div>
+                        <div class="creator-avatar-sm">${avatarMarkup}</div>
                         <div class="brand-offer-info">
                             <p class="brand-offer-creator">${influencerName} <span>${influencerHandle}</span></p>
                             <p class="brand-offer-campaign">Campaign: <strong>${campaignName}</strong></p>
@@ -383,6 +388,22 @@
             background: linear-gradient(135deg, var(--gold), #c49440);
             color: var(--midnight); display: flex; align-items: center; justify-content: center;
             font-family: 'Playfair Display', serif; font-weight: 700; font-size: 0.95rem;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 6px 18px rgba(4, 8, 18, 0.22);
+        }
+        .creator-avatar-sm-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .creator-avatar-sm-fallback {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         .brand-offer-info { display: flex; flex-direction: column; gap: 0.2rem; }
         .brand-offer-creator { font-weight: 700; color: var(--text-primary); font-size: 0.95rem; }

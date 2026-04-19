@@ -75,19 +75,79 @@
         </div>
     </div>
 
+    <div id="deleteCampaignModal" class="modal-overlay">
+        <div class="modal-content delete-modal-content">
+            <span class="modal-close" onclick="closeDeleteCampaignModal()">&times;</span>
+            <h2 style="margin-bottom:0.5rem;">Delete Campaign?</h2>
+            <p id="deleteCampaignMessage" style="color:var(--text-secondary);line-height:1.6;">This action will permanently remove the campaign and its related offers.</p>
+            <div style="margin-top:2rem;display:flex;gap:1rem;justify-content:flex-end;flex-wrap:wrap;">
+                <button class="btn-secondary" onclick="closeDeleteCampaignModal()">No</button>
+                <button class="btn-primary btn-danger-soft" id="confirmDeleteCampaignBtn" onclick="confirmDeleteCampaign()">Yes, Delete</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js"></script>
     <script src="js/config.js"></script>
     <script src="js/notifications.js"></script>
     <script src="js/profile-menu.js"></script>
+    <script src="js/chatbot.js"></script>
     <script>
         const supabaseClient = window.ReachIQ.createSupabaseClient();
         let campaignData = [];
         let selectedOfferId = null;
+        let pendingCampaignDelete = null;
+        const CAMPAIGNS_CACHE_KEY = 'reachiq_brand_campaigns_cache';
+
+        function escapeAttribute(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        function initialsFromName(name = '') {
+            const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+            if (!parts.length) return 'CR';
+            return parts.slice(0, 2).map(part => part[0]).join('').toUpperCase();
+        }
+
+        function renderCreatorIdentity(creator = {}) {
+            const name = creator.full_name || creator.username || 'Creator';
+            const avatar = creator.avatar_url
+                ? `<img src="${creator.avatar_url}" alt="${escapeAttribute(name)}" class="submission-avatar-image">`
+                : `<span class="submission-avatar-fallback">${initialsFromName(name)}</span>`;
+            return `
+                <div class="submission-creator">
+                    <span class="submission-avatar">${avatar}</span>
+                    <div class="submission-creator-copy">
+                        <strong>${name}</strong>
+                        <span>${creator.username ? '@' + creator.username : ''}</span>
+                    </div>
+                </div>
+            `;
+        }
 
         async function init() {
             const auth = await window.ReachIQ.requireRole(supabaseClient, 'brand');
             if (!auth) return;
+            renderCachedCampaigns();
             await loadCampaigns();
+        }
+
+        function renderCachedCampaigns() {
+            try {
+                const raw = window.sessionStorage.getItem(CAMPAIGNS_CACHE_KEY);
+                if (!raw) return;
+                const cached = JSON.parse(raw);
+                if (!Array.isArray(cached) || !cached.length) return;
+                campaignData = cached;
+                renderCampaigns(true);
+            } catch (error) {
+                console.warn('Could not read cached campaigns:', error);
+            }
         }
 
         async function loadCampaigns() {
@@ -99,13 +159,14 @@
                 const payload = await window.ReachIQ.parseJsonResponse(response);
                 if (!response.ok) throw new Error(payload.error || 'Failed to load campaigns');
                 campaignData = payload.campaigns || [];
-                renderCampaigns();
+                window.sessionStorage.setItem(CAMPAIGNS_CACHE_KEY, JSON.stringify(campaignData));
+                renderCampaigns(false);
             } catch (error) {
                 document.getElementById('campaignsContainer').innerHTML = `<div class="empty-state"><h3>Could not load campaigns</h3><p>${error.message}</p></div>`;
             }
         }
 
-        function renderCampaigns() {
+        function renderCampaigns(isCached = false) {
             const container = document.getElementById('campaignsContainer');
             if (!campaignData.length) {
                 container.innerHTML = `<div class="empty-state"><h3>No campaigns yet</h3><p>Create your first campaign to start creator delivery tracking.</p><a href="create-campaign.html" class="btn-primary" style="margin-top:1rem;">Create Campaign</a></div>`;
@@ -115,7 +176,7 @@
             container.innerHTML = campaignData.map(campaign => `
                 <section class="campaign-panel">
                     <div class="campaign-panel-header">
-                        <div>
+                        <div class="campaign-panel-copy">
                             <div class="campaign-title-row">
                                 <h2>${campaign.name}</h2>
                                 <span class="status-badge ${campaign.status}">${campaign.status}</span>
@@ -123,10 +184,23 @@
                             <p class="campaign-brief">${campaign.brief_text || 'No brief provided.'}</p>
                         </div>
                         <div class="campaign-actions">
+                            <button class="card-edit-btn" type="button" title="Edit campaign" aria-label="Edit ${escapeAttribute(campaign.name)}" onclick="editCampaign('${campaign.id}')">
+                                <svg viewBox="0 0 24 24" aria-hidden="true" class="card-edit-icon">
+                                    <path d="M4 16.25V20h3.75L18.81 8.94l-3.75-3.75L4 16.25Zm2.6 2.25H5.5v-1.1l9.56-9.56 1.1 1.1L6.6 18.5ZM20.71 7.04a1 1 0 0 0 0-1.41L18.37 3.3a1 1 0 0 0-1.41 0l-1.13 1.13 3.75 3.75 1.13-1.14Z" fill="currentColor"/>
+                                </svg>
+                            </button>
+                            <button class="card-delete-btn" type="button" title="Delete campaign" aria-label="Delete ${escapeAttribute(campaign.name)}" data-campaign-name="${escapeAttribute(campaign.name)}" onclick="openDeleteCampaignModal('${campaign.id}', this.dataset.campaignName)">
+                                <svg viewBox="0 0 24 24" aria-hidden="true" class="card-delete-icon">
+                                    <path d="M9 3.75h6a1 1 0 0 1 1 1V6h3a.75.75 0 0 1 0 1.5h-1.05l-.84 11.33A2.25 2.25 0 0 1 14.86 21H9.14a2.25 2.25 0 0 1-2.25-2.17L6.05 7.5H5a.75.75 0 0 1 0-1.5h3V4.75a1 1 0 0 1 1-1Zm5.5 2.25V5.25h-5V6h5ZM8.39 7.5l.82 11.22a.75.75 0 0 0 .75.72h5.08a.75.75 0 0 0 .75-.72l.82-11.22H8.39ZM10.5 10a.75.75 0 0 1 .75.75v5.5a.75.75 0 0 1-1.5 0v-5.5A.75.75 0 0 1 10.5 10Zm3.75 0a.75.75 0 0 1 .75.75v5.5a.75.75 0 0 1-1.5 0v-5.5a.75.75 0 0 1 .75-.75Z" fill="currentColor"/>
+                                </svg>
+                            </button>
                             <a href="creator-discovery.html?campaign=${campaign.id}" class="btn-secondary">Find Creators</a>
+                            <button class="btn-secondary" onclick="openCampaignAnalytics('${campaign.id}', event)">Analyze Campaign</button>
                             ${campaign.can_analyze ? `<button class="btn-primary" onclick="openCompletedCampaign('${campaign.id}')">Analyze Milestones</button>` : ''}
                         </div>
                     </div>
+
+                    ${isCached ? `<div class="refresh-banner"><span class="loading-spinner inline-spinner"></span><span>Showing saved campaign data while the latest tracker state loads.</span></div>` : ''}
 
                     <div class="campaign-summary-grid">
                         <div class="summary-box">
@@ -158,20 +232,22 @@
                             <div class="submission-row">
                                 <div class="submission-main">
                                     <div class="submission-topline">
-                                        <strong>${offer.influencer?.full_name || 'Creator'}</strong>
-                                        <span>${offer.influencer?.username ? '@' + offer.influencer.username : ''}</span>
+                                        ${renderCreatorIdentity(offer.influencer || {})}
                                     </div>
-                                    <p class="submission-meta">Negotiation: ${offer.negotiation_summary?.headline || 'No summary yet'}</p>
-                                    <p class="submission-meta">Deliverable: ${offer.deliverable_url ? `<a href="${offer.deliverable_url}" target="_blank" rel="noopener noreferrer">Open submitted video</a>` : 'Waiting for creator submission'}</p>
-                                    <p class="submission-meta">Escrow: ${formatStatusLabel(offer.payment_status)} • Review: ${formatStatusLabel(offer.deliverable_status)}</p>
+                                    <div class="submission-chip-row">
+                                        <span class="submission-chip submission-chip-accent">Negotiation: ${offer.negotiation_summary?.headline || 'No summary yet'}</span>
+                                        <span class="submission-chip">Escrow: ${formatStatusLabel(offer.payment_status)}</span>
+                                        <span class="submission-chip">Review: ${formatStatusLabel(offer.deliverable_status)}</span>
+                                    </div>
+                                    <p class="submission-link-row">Deliverable: ${offer.deliverable_url ? `<a href="${offer.deliverable_url}" target="_blank" rel="noopener noreferrer">Open submitted video</a>` : 'Waiting for creator submission'}</p>
                                 </div>
                                 <div class="submission-metrics">
                                     <span>${offer.negotiated_amount ? window.ReachIQ.formatInr(offer.negotiated_amount) : (offer.campaigns?.budget_range || 'Negotiable')}</span>
-                                    <small>${offer.analytics_preview ? `${offer.analytics_preview.views.toLocaleString()} views` : 'Analytics pending'}</small>
+                                    <small>${offer.analytics_preview?.last_tracked_at ? `${offer.analytics_preview.views.toLocaleString()} tracked views` : 'Tracker warming up'}</small>
                                 </div>
                                 <div class="submission-actions">
-                                    ${offer.deliverable_url ? `<button class="btn-secondary" onclick="openOfferAnalytics('${offer.id}')">Open Analytics</button>` : ''}
-                                    <button class="btn-primary" onclick="openFulfillmentModal('${offer.id}')">Review & Payment</button>
+                                    ${offer.deliverable_url ? `<button class="btn-secondary" onclick="openOfferAnalytics('${offer.id}', event)">Open Analytics</button>` : ''}
+                                    ${offer.payment_status !== 'paid' ? `<button class="btn-primary" onclick="openFulfillmentModal('${offer.id}')">Review & Payment</button>` : ''}
                                 </div>
                             </div>
                         `).join('') : `<div class="empty-inline">No creators linked to this campaign yet.</div>`}
@@ -184,8 +260,40 @@
             return (value || 'pending').replace(/_/g, ' ');
         }
 
-        function openOfferAnalytics(offerId) {
+        function openOfferAnalytics(offerId, event) {
+            const offer = campaignData.flatMap(campaign => campaign.offers || []).find(item => item.id === offerId);
+            if (offer) {
+                try {
+                    window.sessionStorage.setItem(`reachiq_offer_context_${offerId}`, JSON.stringify(offer));
+                } catch (error) {
+                    console.warn('Could not cache offer context:', error);
+                }
+            }
+            const button = event?.currentTarget;
+            if (button) {
+                button.disabled = true;
+                button.dataset.originalText = button.textContent;
+                button.innerHTML = '<span class="loading-spinner" style="width:14px;height:14px;border-width:2px;margin:0 6px 0 0;display:inline-block;vertical-align:middle;"></span>Opening...';
+            }
             window.location.href = `video-tracker.html?offer=${offerId}`;
+        }
+
+        function openCampaignAnalytics(campaignId, event) {
+            const campaign = campaignData.find(item => item.id === campaignId);
+            if (campaign) {
+                try {
+                    window.sessionStorage.setItem(`reachiq_campaign_context_${campaignId}`, JSON.stringify(campaign));
+                } catch (error) {
+                    console.warn('Could not cache campaign context:', error);
+                }
+            }
+            const button = event?.currentTarget;
+            if (button) {
+                button.disabled = true;
+                button.dataset.originalText = button.textContent;
+                button.innerHTML = '<span class="loading-spinner" style="width:14px;height:14px;border-width:2px;margin:0 6px 0 0;display:inline-block;vertical-align:middle;"></span>Opening...';
+            }
+            window.location.href = `campaign-analytics.html?campaign=${campaignId}`;
         }
 
         function openCompletedCampaign(campaignId) {
@@ -211,6 +319,50 @@
         function closeFulfillmentModal() {
             selectedOfferId = null;
             document.getElementById('fulfillmentModal').style.display = 'none';
+        }
+
+        function openDeleteCampaignModal(campaignId, campaignName) {
+            pendingCampaignDelete = { campaignId, campaignName };
+            document.getElementById('deleteCampaignMessage').textContent = `Delete "${campaignName}" and its related offers? This cannot be undone.`;
+            document.getElementById('deleteCampaignModal').style.display = 'flex';
+        }
+
+        function editCampaign(campaignId) {
+            window.location.href = `create-campaign.html?edit=${campaignId}`;
+        }
+
+        function closeDeleteCampaignModal() {
+            pendingCampaignDelete = null;
+            const confirmBtn = document.getElementById('confirmDeleteCampaignBtn');
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'Yes, Delete';
+            document.getElementById('deleteCampaignModal').style.display = 'none';
+        }
+
+        async function confirmDeleteCampaign() {
+            if (!pendingCampaignDelete?.campaignId) return;
+            const confirmBtn = document.getElementById('confirmDeleteCampaignBtn');
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = 'Deleting...';
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                const response = await fetch(window.ReachIQ.apiUrl(`/campaigns/${pendingCampaignDelete.campaignId}`), {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${session.access_token}` }
+                });
+                const payload = await window.ReachIQ.parseJsonResponse(response);
+                if (!response.ok) throw new Error(payload.error || 'Failed to delete campaign');
+
+                campaignData = campaignData.filter(campaign => campaign.id !== pendingCampaignDelete.campaignId);
+                window.sessionStorage.setItem(CAMPAIGNS_CACHE_KEY, JSON.stringify(campaignData));
+                closeDeleteCampaignModal();
+                renderCampaigns(false);
+                await loadCampaigns();
+            } catch (error) {
+                alert(error.message);
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = 'Yes, Delete';
+            }
         }
 
         async function saveFulfillmentUpdate() {
@@ -255,6 +407,9 @@
             if (event.target.id === 'fulfillmentModal') {
                 closeFulfillmentModal();
             }
+            if (event.target.id === 'deleteCampaignModal') {
+                closeDeleteCampaignModal();
+            }
         });
 
         document.addEventListener('DOMContentLoaded', init);
@@ -272,6 +427,7 @@
             border-radius: var(--radius-lg);
             padding: 1.5rem;
             backdrop-filter: blur(12px);
+            box-shadow: 0 18px 36px rgba(0,0,0,0.22);
         }
         .campaign-panel-header,
         .campaign-title-row,
@@ -282,18 +438,127 @@
             flex-wrap: wrap;
             align-items: center;
         }
+        .campaign-panel-header {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: start;
+        }
+        .campaign-panel-copy {
+            min-width: 0;
+        }
         .campaign-brief,
-        .submission-meta {
-            color: var(--text-muted);
-            font-size: 0.88rem;
+        .submission-link-row {
+            color: var(--text-secondary);
+            font-size: 0.96rem;
             line-height: 1.5;
-            margin-top: 0.4rem;
+            margin-top: 0.6rem;
+        }
+        .submission-creator {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            min-width: 0;
+        }
+        .submission-avatar {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.05);
+            box-shadow: 0 6px 18px rgba(4, 8, 18, 0.22);
+        }
+        .submission-avatar-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .submission-avatar-fallback {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.64rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            background: linear-gradient(135deg, rgba(212,168,83,0.24), rgba(77,217,192,0.18));
+        }
+        .submission-creator-copy {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+        .submission-creator-copy strong {
+            margin: 0;
+        }
+        .submission-creator-copy span {
+            color: var(--text-muted);
+            font-size: 0.82rem;
+            line-height: 1.2;
         }
         .campaign-actions,
         .submission-actions {
             display: flex;
             gap: 0.75rem;
             flex-wrap: wrap;
+        }
+        .campaign-actions {
+            width: 260px;
+            justify-content: flex-end;
+            align-items: stretch;
+            align-content: flex-start;
+            flex-shrink: 0;
+        }
+        .campaign-actions .btn-secondary,
+        .campaign-actions .btn-primary {
+            flex: 1 1 100%;
+            justify-content: center;
+            text-align: center;
+        }
+        .campaign-actions .card-edit-btn,
+        .campaign-actions .card-delete-btn {
+            flex: 0 0 auto;
+        }
+        .campaign-actions .card-edit-btn {
+            margin-left: auto;
+        }
+        .card-edit-btn,
+        .card-delete-btn {
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            padding: 0.2rem;
+            transition: color 0.2s ease, transform 0.2s ease;
+        }
+        .card-edit-btn {
+            color: rgba(150, 230, 255, 0.95);
+        }
+        .card-delete-btn {
+            color: rgba(251, 191, 204, 0.92);
+        }
+        .card-edit-btn:hover {
+            color: #e0f7ff;
+            transform: translateY(-1px);
+        }
+        .card-delete-btn:hover {
+            color: #ffe4e6;
+            transform: translateY(-1px);
+        }
+        .card-edit-icon,
+        .card-delete-icon {
+            width: 1.2rem;
+            height: 1.2rem;
+            display: block;
         }
         .campaign-summary-grid {
             display: grid;
@@ -310,26 +575,48 @@
         }
         .summary-box {
             padding: 1rem;
+            background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04));
         }
         .summary-box span {
             display: block;
             font-size: 0.75rem;
-            color: var(--text-muted);
+            color: var(--gold-light);
             text-transform: uppercase;
             letter-spacing: 0.06em;
             margin-bottom: 0.35rem;
+            font-weight: 700;
         }
         .summary-box strong {
             color: var(--white);
-            font-size: 1rem;
+            font-size: 1.05rem;
         }
         .timeline-box {
             margin-top: 1rem;
             padding: 1rem;
-            color: var(--text-secondary);
+            color: var(--text-primary);
+            background: linear-gradient(135deg, rgba(77,217,192,0.1), rgba(212,168,83,0.08));
         }
         .submissions-section {
             margin-top: 1.25rem;
+        }
+        .refresh-banner {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin-top: 1rem;
+            padding: 0.6rem 0.85rem;
+            border-radius: 999px;
+            background: rgba(77,217,192,0.12);
+            border: 1px solid rgba(77,217,192,0.18);
+            color: var(--teal);
+            font-size: 0.84rem;
+            font-weight: 600;
+        }
+        .inline-spinner {
+            width: 16px;
+            height: 16px;
+            margin: 0;
+            border-width: 2px;
         }
         .submission-row {
             display: grid;
@@ -338,6 +625,7 @@
             padding: 1rem;
             margin-top: 0.85rem;
             align-items: center;
+            background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.05));
         }
         .submission-topline {
             display: flex;
@@ -351,22 +639,51 @@
         .submission-topline span,
         .submission-metrics small,
         .section-head span {
-            color: var(--text-muted);
-            font-size: 0.78rem;
+            color: var(--gold-light);
+            font-size: 0.82rem;
+            font-weight: 600;
+        }
+        .submission-chip-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.55rem;
+            margin-top: 0.75rem;
+        }
+        .submission-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.42rem 0.8rem;
+            border-radius: 999px;
+            background: rgba(248,244,239,0.08);
+            border: 1px solid rgba(248,244,239,0.12);
+            color: var(--text-primary);
+            font-size: 0.82rem;
+            font-weight: 600;
+        }
+        .submission-chip-accent {
+            background: rgba(212,168,83,0.14);
+            border-color: rgba(212,168,83,0.24);
+            color: var(--gold-light);
         }
         .submission-metrics {
             display: flex;
             flex-direction: column;
             gap: 0.35rem;
             text-align: center;
+            padding: 0.85rem;
+            border-radius: var(--radius);
+            background: rgba(77,217,192,0.08);
+            border: 1px solid rgba(77,217,192,0.16);
         }
         .submission-metrics span {
             color: var(--gold);
             font-weight: 700;
+            font-size: 1rem;
         }
         .empty-inline {
             padding: 1rem;
-            color: var(--text-muted);
+            color: var(--text-secondary);
+            font-size: 0.96rem;
         }
         .modal-overlay {
             display: none;
@@ -389,6 +706,9 @@
             max-height: 90vh;
             overflow-y: auto;
         }
+        .delete-modal-content {
+            max-width: 520px;
+        }
         .modal-close {
             position: absolute;
             top: 1rem;
@@ -403,7 +723,28 @@
             padding-top: 1.5rem;
             border-top: 1px solid var(--border-subtle);
         }
+        .btn-danger-soft {
+            background: linear-gradient(135deg, #ef4444, #e11d48);
+            border: none;
+        }
+        .btn-danger-soft:hover {
+            filter: brightness(1.06);
+        }
         @media (max-width: 900px) {
+            .campaign-panel-header {
+                grid-template-columns: 1fr;
+            }
+            .campaign-actions {
+                width: 100%;
+                justify-content: flex-start;
+            }
+            .campaign-actions .btn-secondary,
+            .campaign-actions .btn-primary {
+                flex: 1 1 auto;
+            }
+            .campaign-actions .card-edit-btn {
+                margin-left: 0;
+            }
             .submission-row {
                 grid-template-columns: 1fr;
             }

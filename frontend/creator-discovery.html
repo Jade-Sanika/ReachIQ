@@ -89,6 +89,7 @@
     <script src="js/config.js"></script>
     <script src="js/notifications.js"></script>
     <script src="js/profile-menu.js"></script>
+    <script src="js/chatbot.js"></script>
     <script>
         const supabaseClient = window.ReachIQ.createSupabaseClient();
 
@@ -163,7 +164,8 @@
                 </div>`;
                 return;
             }
-            grid.innerHTML = creators.map(c => {
+
+            const renderCreatorCard = c => {
                 const profileObj = c.profile || c.profiles || {};
                 const fullName = profileObj.full_name || 'Anonymous Creator';
                 const handle = c.youtube_channel || (profileObj.username ? `@${profileObj.username}` : '@user');
@@ -194,6 +196,7 @@
                         </div>`
                     : '';
 
+                const creatorId = c.profile_id || profileObj.id || c.id || '';
                 return `<div class="creator-card">
                     <div class="creator-card-header">
                         <div class="creator-avatar-wrap">
@@ -226,9 +229,54 @@
                         </div>
                         ${forecastHtml}
                     </div>
-                    <button class="btn-primary" onclick="openOfferComposerOrSend('${c.profile_id}', this)">Send Offer</button>
+                    <button class="btn-primary" onclick="openOfferComposerOrSend('${creatorId}', this)" ${creatorId ? '' : 'disabled'}>Send Offer</button>
                 </div>`;
-            }).join('');
+            };
+
+            const hasRankedSections = creators.some(c => c.match_percentage !== undefined || c.niche_tier !== undefined);
+            if (!hasRankedSections) {
+                grid.innerHTML = creators.map(renderCreatorCard).join('');
+                return;
+            }
+
+            const sections = [
+                {
+                    key: 'same',
+                    title: 'Same Niche Creators',
+                    caption: 'Closest fit to your campaign niche.',
+                    items: creators.filter(c => Number(c.niche_tier || 0) === 1)
+                },
+                {
+                    key: 'broader',
+                    title: 'Broader Niche Creators',
+                    caption: 'Related or broader fits that still align reasonably well.',
+                    items: creators.filter(c => {
+                        const tier = Number(c.niche_tier || 0);
+                        return tier === 2 || tier === 3;
+                    })
+                },
+                {
+                    key: 'remaining',
+                    title: 'Remaining Creators',
+                    caption: 'Visible for exploration, but less relevant to this specific campaign.',
+                    items: creators.filter(c => Number(c.niche_tier || 0) >= 4 || !c.niche_tier)
+                }
+            ].filter(section => section.items.length);
+
+            grid.innerHTML = sections.map((section, index) => `
+                <section class="creator-section ${index > 0 ? 'with-divider' : ''}">
+                    <div class="creator-section-header">
+                        <div>
+                            <h3>${section.title}</h3>
+                            <p>${section.caption}</p>
+                        </div>
+                        <span class="creator-section-count">${section.items.length}</span>
+                    </div>
+                    <div class="creator-section-grid">
+                        ${section.items.map(renderCreatorCard).join('')}
+                    </div>
+                </section>
+            `).join('');
         }
 
         function filterCreators() {
@@ -295,11 +343,17 @@
             }
 
             const brandNotes = document.getElementById('offerBrandNotes').value;
+            const influencerId = selectedInfluencerId;
+            const submitButton = selectedButtonElement;
             closeOfferComposer();
-            await performOfferSend(selectedCampaignId, selectedInfluencerId, brandNotes, selectedButtonElement);
+            await performOfferSend(selectedCampaignId, influencerId, brandNotes, submitButton);
         }
 
         async function performOfferSend(selectedCampaignId, influencerId, brandNotes, buttonElement) {
+            if (!selectedCampaignId || !influencerId || !buttonElement) {
+                alert('We could not prepare this offer correctly. Please try again.');
+                return;
+            }
             const originalText = buttonElement.innerText;
             buttonElement.innerText = "Sending...";
             buttonElement.disabled = true;
@@ -326,8 +380,8 @@
 
                 const result = await response.json();
                 if (result.status === 'success') {
-                    alert("Offer sent successfully!");
-                    buttonElement.innerText = "Offer Sent!";
+                    alert(result.already_exists ? "An offer already exists for this creator on that campaign." : "Offer sent successfully!");
+                    buttonElement.innerText = result.already_exists ? "Offer Exists" : "Offer Sent!";
                     buttonElement.style.backgroundColor = "var(--teal, #4dd9c0)";
                     buttonElement.style.color = "var(--midnight, #0b1121)";
                     buttonElement.style.borderColor = "var(--teal, #4dd9c0)";
@@ -383,7 +437,58 @@
         .search-wrap input { padding-left: 2.4rem !important; width: 100%; }
         .filter-wrap select { min-width: 180px; }
 
-        .creators-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.25rem; }
+        .creators-grid { display: flex; flex-direction: column; gap: 1.5rem; }
+        .creator-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .creator-section.with-divider {
+            position: relative;
+            padding-top: 1.35rem;
+        }
+        .creator-section.with-divider::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(187, 196, 214, 0.28), transparent);
+        }
+        .creator-section-header {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .creator-section-header h3 {
+            margin: 0;
+            font-size: 1rem;
+            color: rgba(236, 240, 248, 0.95);
+            font-weight: 700;
+        }
+        .creator-section-header p {
+            margin: 0.25rem 0 0;
+            color: rgba(187, 196, 214, 0.82);
+            font-size: 0.86rem;
+        }
+        .creator-section-count {
+            min-width: 2rem;
+            text-align: center;
+            padding: 0.18rem 0.55rem;
+            border-radius: 999px;
+            border: 1px solid rgba(187, 196, 214, 0.16);
+            background: rgba(255, 255, 255, 0.03);
+            color: rgba(210, 218, 232, 0.88);
+            font-size: 0.76rem;
+            font-weight: 700;
+        }
+        .creator-section-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.25rem;
+        }
         .modal-overlay {
             display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7);
             z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(5px);

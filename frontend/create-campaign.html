@@ -129,9 +129,15 @@
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label for="timelineRequirements">Timeline / Requirements</label>
-                    <input type="text" id="timelineRequirements" placeholder="e.g., Submit within 10 days and include CTA + hashtag">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="negotiationFlexibility">Negotiation Flexibility (%)</label>
+                        <input type="number" id="negotiationFlexibility" min="0" max="100" step="1" placeholder="e.g., 10">
+                    </div>
+                    <div class="form-group">
+                        <label for="timelineRequirements">Timeline / Requirements</label>
+                        <input type="text" id="timelineRequirements" placeholder="e.g., Submit within 10 days and include CTA + hashtag">
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -170,8 +176,10 @@
     <script src="js/config.js"></script>
     <script src="js/notifications.js"></script>
     <script src="js/profile-menu.js"></script>
+    <script src="js/chatbot.js"></script>
     <script>
         const supabaseClient = window.ReachIQ.createSupabaseClient();
+        let editingCampaignId = null;
 
         async function checkAuth() {
             const auth = await window.ReachIQ.requireRole(supabaseClient, 'brand');
@@ -210,6 +218,14 @@
             document.getElementById('formCard').style.display = 'block';
         }
 
+        function setEditMode(campaign) {
+            editingCampaignId = campaign.id;
+            document.querySelector('.page-header .eyebrow').textContent = 'Campaign Editor';
+            document.querySelector('.page-header h1').textContent = 'Edit Campaign';
+            document.querySelector('.page-header p').textContent = 'Update your campaign details and save them back into ReachIQ.';
+            document.querySelector('#campaignForm button[type="submit"]').textContent = 'Save Campaign Changes';
+        }
+
         function populateForm(data) {
             if (data.name) document.getElementById('campaignName').value = data.name;
             if (data.brief_text) document.getElementById('campaignBrief').value = data.brief_text;
@@ -221,7 +237,37 @@
             if (data.budget_range) {
                 const normalizedBudget = String(data.budget_range).replace(/\s+/g, ' ').trim();
                 const match = [...budgetSelect.options].find(option => option.value.replace(/\s+/g, ' ').trim() === normalizedBudget);
-                budgetSelect.value = match ? match.value : '';
+                if (match) {
+                    budgetSelect.value = match.value;
+                } else {
+                    const existingCustom = [...budgetSelect.options].find(option => option.dataset.customParsed === 'true');
+                    if (existingCustom) existingCustom.remove();
+                    const customOption = document.createElement('option');
+                    customOption.value = normalizedBudget;
+                    customOption.textContent = normalizedBudget;
+                    customOption.dataset.customParsed = 'true';
+                    budgetSelect.appendChild(customOption);
+                    budgetSelect.value = normalizedBudget;
+                }
+            }
+
+            if (data.deadline) {
+                const parsedDate = new Date(data.deadline);
+                if (!Number.isNaN(parsedDate.getTime())) {
+                    document.getElementById('deadline').value = parsedDate.toISOString().slice(0, 10);
+                }
+            }
+
+            if (data.milestone_views) {
+                document.getElementById('milestoneViews').value = Number(data.milestone_views) || '';
+            }
+
+            if (data.timeline_requirements) {
+                document.getElementById('timelineRequirements').value = data.timeline_requirements;
+            }
+
+            if (data.negotiation_flexibility !== undefined && data.negotiation_flexibility !== null) {
+                document.getElementById('negotiationFlexibility').value = Number(data.negotiation_flexibility) || 0;
             }
 
             const platforms = (data.platforms || '')
@@ -297,8 +343,8 @@
             document.getElementById('loadingMessage').innerHTML = `
                 <div style="text-align:center;padding:4rem 2rem;">
                     <div style="width:72px;height:72px;background:rgba(77,217,192,0.12);border:1px solid rgba(77,217,192,0.3);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.4rem;margin:0 auto 1.5rem;">OK</div>
-                    <h3 style="margin-bottom:0.5rem;color:var(--teal);">Campaign Created!</h3>
-                    <p style="margin-bottom:2rem;">AI is now matching creators to your brief. Review your matches below.</p>
+                    <h3 style="margin-bottom:0.5rem;color:var(--teal);">${editingCampaignId ? 'Campaign Updated!' : 'Campaign Created!'}</h3>
+                    <p style="margin-bottom:2rem;">${editingCampaignId ? 'Your campaign changes are saved. You can review analytics or jump back into creator matching.' : 'AI is now matching creators to your brief. Review your matches below.'}</p>
                     <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;">
                         <button onclick="window.location.href='creator-discovery.html?campaign=${campaign.id}'" class="btn-primary">View Matching Creators</button>
                         <button onclick="window.location.href='brand-dashboard.html'" class="btn-secondary">Back to Dashboard</button>
@@ -307,8 +353,35 @@
             document.getElementById('loadingMessage').style.display = 'block';
         }
 
+        async function loadCampaignForEdit(campaignId) {
+            showLoadingState('Loading campaign...', 'Fetching your saved campaign details for editing.');
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session) throw new Error('No session found. Please log in again.');
+
+                const response = await fetch(window.ReachIQ.apiUrl(`/campaigns/${campaignId}`), {
+                    headers: { 'Authorization': `Bearer ${session.access_token}` }
+                });
+                const payload = await window.ReachIQ.parseJsonResponse(response);
+                if (!response.ok) throw new Error(payload.error || 'Failed to load campaign');
+
+                populateForm(payload.campaign || {});
+                setEditMode(payload.campaign || { id: campaignId });
+                hideLoadingState();
+            } catch (error) {
+                hideLoadingState();
+                alert('Error loading campaign: ' + error.message);
+                window.location.href = 'brand-campaigns.html';
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             checkAuth();
+            const params = new URLSearchParams(window.location.search);
+            const editId = params.get('edit');
+            if (editId) {
+                loadCampaignForEdit(editId);
+            }
 
             const fileInput = document.getElementById('briefDoc');
 
@@ -363,15 +436,20 @@
                 const user = await checkAuth();
                 if (!user) return;
 
-                showLoadingState('Creating your campaign...', 'Saving details and preparing creator matching engine.');
+                showLoadingState(
+                    editingCampaignId ? 'Saving campaign changes...' : 'Creating your campaign...',
+                    editingCampaignId ? 'Updating campaign details and syncing them into ReachIQ.' : 'Saving details and preparing creator matching engine.'
+                );
                 const platformCheckboxes = document.querySelectorAll('input[name="platform"]:checked');
 
                 try {
                     const { data: { session } } = await supabaseClient.auth.getSession();
                     if (!session) throw new Error('No session found. Please log in again.');
 
-                    const response = await fetch(window.ReachIQ.apiUrl('/campaigns/create'), {
-                        method: 'POST',
+                    const response = await fetch(
+                        editingCampaignId ? window.ReachIQ.apiUrl(`/campaigns/${editingCampaignId}`) : window.ReachIQ.apiUrl('/campaigns/create'),
+                        {
+                        method: editingCampaignId ? 'PUT' : 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'Authorization': `Bearer ${session.access_token}`
@@ -386,16 +464,17 @@
                             status: 'active',
                             deadline: document.getElementById('deadline').value || null,
                             milestone_views: Number(document.getElementById('milestoneViews').value || 0),
+                            negotiation_flexibility: Number(document.getElementById('negotiationFlexibility').value || 0),
                             timeline_requirements: document.getElementById('timelineRequirements').value || null,
                             platforms: Array.from(platformCheckboxes).map(checkbox => checkbox.value).join(', ') || null
                         })
                     });
                     const payload = await window.ReachIQ.parseJsonResponse(response);
-                    if (!response.ok) throw new Error(payload.error || 'Failed to create campaign');
+                    if (!response.ok) throw new Error(payload.error || (editingCampaignId ? 'Failed to update campaign' : 'Failed to create campaign'));
 
                     setTimeout(() => showSuccessState(payload.campaign), 1500);
                 } catch (error) {
-                    alert('Error creating campaign: ' + error.message);
+                    alert(`Error ${editingCampaignId ? 'updating' : 'creating'} campaign: ` + error.message);
                     hideLoadingState();
                 }
             });
